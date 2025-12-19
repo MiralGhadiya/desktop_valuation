@@ -1,0 +1,20 @@
+from sqlalchemy.orm import Session
+from app.models.valuation import ValuationReport
+
+
+def save_valuation_report(db: Session, payload: dict) -> int:
+    record = ValuationReport(
+        valuation_id=payload["valuation_id"],
+        user_id=payload["user_id"],
+        category=payload["category"],
+        country_code=payload["country_code"],
+        user_fields=payload["user_fields"],
+        ai_response=payload["ai_response"],
+        report_context=payload["report_context"],
+        pdf_path=payload["pdf_path"],
+    )
+
+    db.add(record)
+    db.commit()
+    db.refresh(record)
+    return record.id

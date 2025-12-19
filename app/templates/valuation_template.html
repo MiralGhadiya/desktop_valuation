@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>Desktop Valuation Report</title>
+<style>
+  body { font-family: Arial, sans-serif; margin: 40px; color: #222; }
+  h1, h2 { color: #003366; }
+  table { width: 100%; border-collapse: collapse; margin: 10px 0 20px; }
+  table th, table td { border: 1px solid #ddd; padding: 8px; }
+  table th { background: #f0f0f0; }
+  .section-title { margin-top: 40px; font-size: 20px; color: #003366; font-weight: bold; }
+</style>
+</head>
+<body>
+
+<h1>DESKTOP VALUATION REPORT</h1>
+<p><strong>Report Version:</strong> 2025.4.0 – Global AVM Standard</p>
+
+<!-- ================= PROPERTY IDENTIFICATION ================= -->
+<div class="section-title">PROPERTY IDENTIFICATION</div>
+
+<table>
+  <tr><th>Property Address</th><td>{{ property_identification.property_address }}</td></tr>
+  <tr><th>Valuation ID</th><td>{{ property_identification.valuation_id }}</td></tr>
+  <tr><th>Date of Report</th><td>{{ property_identification.date_of_report }}</td></tr>
+  <tr><th>Purpose of Valuation</th><td>{{ property_identification.purpose_of_valuation }}</td></tr>
+  <tr><th>Report Type</th><td>{{ property_identification.report_type }}</td></tr>
+  <tr><th>Client Name</th><td>{{ property_identification.client_name }}</td></tr>
+  <tr><th>Contact Email</th><td>{{ property_identification.contact_information.email }}</td></tr>
+  <tr><th>Contact Number</th><td>{{ property_identification.contact_information.phone }}</td></tr>
+</table>
+
+<!-- ================= PROPERTY SUMMARY ================= -->
+<div class="section-title">PROPERTY SUMMARY</div>
+
+<table>
+  <tr><th>Property Type</th><td>{{ property_summary.property_type }}</td></tr>
+  <tr><th>Land Area</th><td>{{ property_summary.land_area }}</td></tr>
+  <tr><th>Built-up Area</th><td>{{ property_summary.built_up_area }}</td></tr>
+  <tr><th>Zoning</th><td>{{ property_summary.zoning }}</td></tr>
+  <tr><th>Title Details</th><td>{{ property_summary.title_details }}</td></tr>
+  <tr><th>Construction Year</th><td>{{ property_summary.construction_year }}</td></tr>
+  <tr><th>Structure</th><td>{{ property_summary.structure }}</td></tr>
+  <tr><th>Car Parking</th><td>{{ property_summary.car_parking }}</td></tr>
+  <tr><th>Ownership Type</th><td>{{ property_summary.ownership_type }}</td></tr>
+  <tr><th>Occupancy</th><td>{{ property_summary.occupancy }}</td></tr>
+  <tr><th>Local Authority</th><td>{{ property_summary.local_authority }}</td></tr>
+  <tr><th>Last Sale Date</th><td>{{ property_summary.last_sale_date }}</td></tr>
+  <tr><th>Last Sale Price</th><td>{{ property_summary.last_sale_price }}</td></tr>
+  <tr><th>Customer Estimate</th><td>{{ property_summary.customer_estimate }}</td></tr>
+</table>
+
+<!-- ================= COMPARABLE SALES ================= -->
+<div class="section-title">COMPARABLE SALES ANALYSIS</div>
+
+<table>
+  <thead>
+    <tr>
+      <th>Address</th>
+      <th>Beds</th>
+      <th>Baths</th>
+      <th>Land</th>
+      <th>Sale Date</th>
+      <th>Sale Price</th>
+      <th>Comparison</th>
+      <th>Distance</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for this in comparable_sales %}
+    <tr>
+      <td>{{ this.address }}</td>
+      <td>{{ this.beds }}</td>
+      <td>{{ this.baths }}</td>
+      <td>{{ this.land_area }}</td>
+      <td>{{ this.sale_date }}</td>
+      <td>{{ this.sale_price }}</td>
+      <td>{{ this.comparison }}</td>
+      <td>{{ this.distance }}</td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+
+<p><strong>Average Comparable Value:</strong> {{ comparable_analysis_summary.average_comparable_value }}</p>
+<p><strong>Adjusted Subject Estimate:</strong> {{ comparable_analysis_summary.adjusted_subject_estimate }}</p>
+
+<!-- ================= THREE-TIER ================= -->
+<div class="section-title">THREE-TIER VALUE ESTIMATION</div>
+
+<table>
+  <tr><th>Conservative Value</th><td>{{ three_tier_valuation.conservative_value }}</td></tr>
+  <tr><th>Mid-Range Value</th><td>{{ three_tier_valuation.mid_range_value }}</td></tr>
+  <tr><th>High Estimate</th><td>{{ three_tier_valuation.high_value }}</td></tr>
+</table>
+
+<!-- ================= RISK ANALYSIS ================= -->
+<div class="section-title">VALUATION & RISK ANALYSIS</div>
+
+<table>
+  <tr><th>Value Range</th><td>{{ valuation_risk_analysis.value_range }}</td></tr>
+  <tr><th>Confidence Index</th><td>{{ valuation_risk_analysis.confidence_index }}</td></tr>
+  <tr><th>Market Risk Score</th><td>{{ valuation_risk_analysis.market_risk_score }}</td></tr>
+  <tr><th>Property Risk Score</th><td>{{ valuation_risk_analysis.property_risk_score }}</td></tr>
+  <tr><th>Recommended LTV</th><td>{{ valuation_risk_analysis.recommended_ltv }}</td></tr>
+  <tr><th>Validity</th><td>{{ valuation_risk_analysis.validity }}</td></tr>
+</table>
+
+<!-- ================= COMMENTARY ================= -->
+<div class="section-title">MARKET COMMENTARY</div>
+<p>{{ market_commentary }}</p>
+
+<!-- ================= SWOT ================= -->
+<div class="section-title">SWOT ANALYSIS (5-YEAR OUTLOOK)</div>
+
+<h3>Strengths</h3>
+<ul>
+{% for item in swot_analysis.strengths %}
+<li>{{ item }}</li>
+{% endfor %}
+</ul>
+
+<h3>Weaknesses</h3>
+<ul>
+{% for item in swot_analysis.weaknesses %}
+<li>{{ item }}</li>
+{% endfor %}
+</ul>
+
+<h3>Opportunities</h3>
+<ul>
+{% for item in swot_analysis.opportunities %}
+<li>{{ item }}</li>
+{% endfor %}
+</ul>
+
+<h3>Threats</h3>
+<ul>
+{% for item in swot_analysis.threats %}
+<li>{{ item }}</li>
+{% endfor %}
+</ul>
+
+<!-- ================= FORECAST ================= -->
+<div class="section-title">5-YEAR VALUE FORECAST</div>
+
+<table>
+  <thead>
+    <tr>
+      <th>Year</th>
+      <th>Growth Rate</th>
+      <th>Forecasted Value</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for row in value_forecast %}
+    <tr>
+      <td>{{ row.year }}</td>
+      <td>{{ row.growth_rate }}</td>
+      <td>{{ row.forecast_value }}</td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+
+<!-- ================= CERTIFICATION ================= -->
+<div class="section-title">CERTIFICATION</div>
+<p>
+  Prepared by Desktop Valuation – AI Automated Valuation Division<br>
+  Email: support@desktopvaluation.in  
+</p>
+
+</body>
+</html>

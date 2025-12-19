@@ -1,0 +1,78 @@
+# ======================
+# Python / Virtual Env
+# ======================
+venv/
+.venv/
+env/
+ENV/
+
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+
+# ======================
+# Environment / Secrets
+# ======================
+.env
+.env.*
+*.key
+*.pem
+*.secret
+
+# ======================
+# Database / Runtime
+# ======================
+generated_reports/
+uploads/
+*.sqlite3
+*.db
+
+# ======================
+# Alembic
+# ======================
+alembic/versions/__pycache__/
+
+# ======================
+# Logs
+# ======================
+*.log
+logs/
+
+# ======================
+# IDE / Editor
+# ======================
+.vscode/
+.idea/
+*.code-workspace
+
+# ======================
+# OS Files
+# ======================
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# ======================
+# Test / Coverage
+# ======================
+.pytest_cache/
+.coverage
+htmlcov/
+
+# ======================
+# Jupyter
+# ======================
+.ipynb_checkpoints/
+
+# ======================
+# Build / Dist
+# ======================
+build/
+dist/
+*.egg-info/
+
+# ======================
+# LLM / AI cache (optional)
+# ======================
+.cache/
