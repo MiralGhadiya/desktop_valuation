@@ -29,22 +29,31 @@ def get_active_subscription(
 def enforce_subscription(
     db: Session,
     user_id: int,
-    country_code: str,
+    subscription_id: int,
     category: str,
 ):
-    sub = get_active_subscription(db, user_id, country_code)
+    sub = (
+        db.query(UserSubscription)
+        .join(SubscriptionPlan)
+        .filter(
+            UserSubscription.id == subscription_id,
+            UserSubscription.user_id == user_id,
+            UserSubscription.is_active == True,
+            UserSubscription.start_date <= datetime.utcnow(),
+            UserSubscription.end_date >= datetime.utcnow(),
+        )
+        .first()
+    )
 
     if not sub:
-        raise HTTPException(403, "No active subscription for this country")
+        raise HTTPException(403, "Invalid or inactive subscription")
 
     plan = sub.plan
 
+    if category not in plan.allowed_categories:
+        raise HTTPException(403, "Category not allowed for this plan")
+
     if plan.max_reports is not None and sub.reports_used >= plan.max_reports:
-        if plan.per_report_price:
-            raise HTTPException(
-                status_code=402,
-                detail=f"Pay per report required: {plan.per_report_price} {plan.currency}"
-            )
         raise HTTPException(403, "Report limit exceeded")
 
     return sub

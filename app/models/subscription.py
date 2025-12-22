@@ -47,9 +47,9 @@ class UserSubscription(Base):
     plan = relationship("SubscriptionPlan")
     
 
-Index(
-    "uq_active_user_subscription",
-    UserSubscription.user_id,
-    unique=True,
-    postgresql_where=UserSubscription.is_active == True
-)
+# Index(
+#     "uq_active_user_subscription",
+#     UserSubscription.user_id,
+#     unique=True,
+#     postgresql_where=UserSubscription.is_active == True
+# )

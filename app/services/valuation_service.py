@@ -6,6 +6,7 @@ def save_valuation_report(db: Session, payload: dict) -> int:
     record = ValuationReport(
         valuation_id=payload["valuation_id"],
         user_id=payload["user_id"],
+        subscription_id=payload["subscription_id"],
         category=payload["category"],
         country_code=payload["country_code"],
         user_fields=payload["user_fields"],

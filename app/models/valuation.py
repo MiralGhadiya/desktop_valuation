@@ -21,6 +21,7 @@ class ValuationReport(Base):
     created_at = Column(DateTime, default=datetime.utcnow)
     user_fields = Column(JSON, nullable=False)
     ai_response = Column(JSON, nullable=False)
+    subscription_id = Column(Integer, ForeignKey("user_subscriptions.id"), nullable=False)
     report_context = Column(JSON, nullable=False)
     pdf_path = Column(String, nullable=False)
 

@@ -65,12 +65,6 @@ def buy_plan(
             "Plan pricing country mismatch. Please purchase correct regional plan."
         )
 
-    # deactivate previous subs
-    db.query(UserSubscription).filter(
-        UserSubscription.user_id == current_user.id,
-        UserSubscription.is_active == True
-    ).update({"is_active": False})
-
     sub = UserSubscription(
         user_id=current_user.id,
         plan_id=plan.id,
@@ -80,7 +74,6 @@ def buy_plan(
         end_date=datetime.utcnow() + timedelta(days=30),
         is_active=True,
     )
-
     db.add(sub)
     db.commit()
     db.refresh(sub)
@@ -88,42 +81,110 @@ def buy_plan(
     return sub
 
 
-@router.get("/me")
-def get_my_subscription(
-    country_code: str,
+@router.get("/my-plans")
+def get_my_active_plans(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    sub = get_active_subscription(
-        db=db,
-        user_id=current_user.id,
-        country_code=country_code.upper(),
+    now = datetime.utcnow()
+
+    plans = (
+        db.query(UserSubscription)
+        .join(SubscriptionPlan)
+        .filter(
+            UserSubscription.user_id == current_user.id,
+            UserSubscription.is_active == True,
+            UserSubscription.start_date <= now,
+            UserSubscription.end_date >= now,
+            SubscriptionPlan.is_active == True,
+        )
+        .order_by(UserSubscription.end_date.asc())
+        .all()
+    )
+
+    return [
+        {
+            "subscription_id": s.id,
+            "plan_name": s.plan.name,
+            "country": s.plan.country_code,
+            "price": s.plan.price,
+            "currency": s.plan.currency,
+            "max_reports": s.plan.max_reports,
+            "reports_used": s.reports_used,
+            "remaining": (
+                None if s.plan.max_reports is None
+                else s.plan.max_reports - s.reports_used
+            ),
+            "start_date": s.start_date,
+            "end_date": s.end_date,
+        }
+        for s in plans
+    ]
+    
+    
+@router.get("/plan-history")
+def subscription_history(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    plans = (
+        db.query(UserSubscription)
+        .join(SubscriptionPlan)
+        .filter(UserSubscription.user_id == current_user.id)
+        .order_by(UserSubscription.start_date.desc())
+        .all()
+    )
+
+    return [
+        {
+            "subscription_id": s.id,
+            "plan_name": s.plan.name,
+            "country": s.plan.country_code,
+            "price": s.plan.price,
+            "currency": s.plan.currency,
+            "max_reports": s.plan.max_reports,
+            "reports_used": s.reports_used,
+            "start_date": s.start_date,
+            "end_date": s.end_date,
+            "is_active": s.is_active,
+            "expired": s.end_date < datetime.utcnow(),
+            "purchased_on": s.start_date,
+        }
+        for s in plans
+    ]
+
+
+@router.get("/default")
+def get_default_subscription(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    now = datetime.utcnow()
+
+    sub = (
+        db.query(UserSubscription)
+        .join(SubscriptionPlan)
+        .filter(
+            UserSubscription.user_id == current_user.id,
+            UserSubscription.is_active == True,
+            UserSubscription.start_date <= now,
+            UserSubscription.end_date >= now,
+        )
+        .order_by(
+            SubscriptionPlan.price.desc(),
+            UserSubscription.end_date.desc()
+        )
+        .first()
     )
 
     if not sub:
-        raise HTTPException(
-            status_code=404,
-            detail="No active subscription"
-        )
+        raise HTTPException(404, "No active subscription")
 
     return {
         "subscription_id": sub.id,
-        "plan": {
-            "id": sub.plan.id,
-            "name": sub.plan.name,
-            "price": sub.plan.price,
-            "currency": sub.plan.currency,
-            "max_reports": sub.plan.max_reports,
-            "allowed_categories": sub.plan.allowed_categories,
-        },
-        "usage": {
-            "reports_used": sub.reports_used,
-            "remaining": (
-                None if sub.plan.max_reports is None
-                else sub.plan.max_reports - sub.reports_used
-            )
-        },
-        "start_date": sub.start_date,
-        "end_date": sub.end_date,
-        "is_active": sub.is_active,
+        "plan": sub.plan.name,
+        "remaining": (
+            None if sub.plan.max_reports is None
+            else sub.plan.max_reports - sub.reports_used
+        ),
     }

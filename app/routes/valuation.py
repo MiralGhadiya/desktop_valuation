@@ -1,6 +1,6 @@
 # app/routes/valuation.py
 import os
-from fastapi import APIRouter, HTTPException, UploadFile, File, Depends
+from fastapi import APIRouter, HTTPException, UploadFile, File, Depends, Form
 from app.utils.pdf_generator import render_html, generate_pdf_from_html
 from sqlalchemy.orm import Session
 from app.database import get_db
@@ -11,9 +11,7 @@ from app.llm.gemini import generate_valuation_summary
 from app.services.subscription_service import enforce_subscription, increment_usage
 from app.utils.email import send_pdf_email
 from app.deps import get_current_user
-from app.models import User, ValuationReport
-
-
+from app.models import User
 from datetime import datetime
 import uuid
 
@@ -131,19 +129,16 @@ UPLOAD_DIR = "uploads"
 os.makedirs(UPLOAD_DIR, exist_ok=True)
 
 
-
 @router.post("/create")
 async def create_valuation_form(
+    subscription_id: int = Form(...),
     form: DesktopValuationForm = Depends(DesktopValuationFormDep),
     attachment: UploadFile = File(None),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
     user_input = form.model_dump()
-    print("Received user input:", user_input)
-    
-    country_code = current_user.country.country_code
-    
+
     raw_type = user_input["property_type"].strip().lower()
 
     CATEGORY_ALIASES = {
@@ -156,70 +151,61 @@ async def create_valuation_form(
         "land": "land",
         "plot": "land",
     }
-    
-    category = CATEGORY_ALIASES.get(raw_type)
 
+    category = CATEGORY_ALIASES.get(raw_type)
     if not category:
         raise HTTPException(400, "Invalid property type")
-
 
     subscription = enforce_subscription(
         db=db,
         user_id=current_user.id,
-        country_code=country_code,
+        subscription_id=subscription_id,
         category=category,
     )
 
     ai_json = generate_valuation_report(user_input)
-    # ai_json = generate_valuation_summary(user_input)
+    context = build_report_context(ai_json, user_input)
 
-    context = build_report_context(ai_json, user_input)  
     html = render_html("valuation_template.html", context)
-
     pdf_path = await generate_pdf_from_html(html)
-    print("Generated PDF Path:", pdf_path)
 
     send_pdf_email(
         to_email=user_input["email"],
         subject="Your Desktop Valuation Report",
-        message=f"Dear {user_input['full_name']},\n\nPlease find attached your valuation report.\n\nRegards,\nEvenMore",
+        message=(
+            f"Dear {user_input['full_name']},\n\n"
+            "Please find attached your valuation report.\n\nRegards,\nEvenMore"
+        ),
         pdf_path=pdf_path
     )
-    print("Sent email to:", user_input["email"])
-    
+
     valuation_id = context["property_identification"]["valuation_id"]
-    print("valuation_id", valuation_id)
 
-    db_payload = {
-        "valuation_id": valuation_id,
-        "user_id": current_user.id,
-        "category": category,
-        "country_code": country_code,
-        "user_fields": user_input,
-        "ai_response": ai_json,
-        "report_context": context,
-        "pdf_path": pdf_path,
-    }
-    
-    print("db_payload: ", db_payload)
+    record_id = save_valuation_report(
+        db,
+        {
+            "valuation_id": valuation_id,
+            "user_id": current_user.id,
+            "subscription_id": subscription.id,  
+            "category": category,
+            "country_code": current_user.country.country_code,
+            "user_fields": user_input,
+            "ai_response": ai_json,
+            "report_context": context,
+            "pdf_path": pdf_path,
+        }
+    )
 
-    try:
-        record_id = save_valuation_report(db, db_payload)
-        print("record_id: ",record_id)
-    except Exception:
-        raise HTTPException(
-            status_code=500,
-            detail="Valuation report generation FAILED to save in database"
-        )
-    
     increment_usage(db, subscription)
 
     return {
         "status": "success",
         "valuation_id": valuation_id,
         "db_record_id": record_id,
+        "subscription_used": subscription.id,
         "pdf_path": pdf_path
     }
+
 
 
 @router.get("/test-openai")

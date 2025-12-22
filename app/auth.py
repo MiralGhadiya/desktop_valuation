@@ -6,7 +6,7 @@ from jose import jwt, JWTError
 
 SECRET_KEY = "supersecr141111111166994845455454548484-34#545443etkey"
 ALGORITHM = "HS256"
-ACCESS_TOKEN_EXPIRE_MINUTES = 30
+ACCESS_TOKEN_EXPIRE_MINUTES = 120
 REFRESH_TOKEN_EXPIRE_DAYS = 7   
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
