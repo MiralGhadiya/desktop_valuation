@@ -1,0 +1,108 @@
+from fastapi import APIRouter, Depends, HTTPException, Query
+from sqlalchemy.orm import Session
+from typing import Optional, List
+from datetime import datetime
+
+from app.deps import get_db, require_superuser
+from app.models import User
+from app.models.valuation import ValuationReport
+from app.schemas import ValuationResponse, ValuationDetailResponse
+
+router = APIRouter(
+    prefix="/admin",
+    tags=["admin-valuations"]
+)
+
+
+@router.get("/valuations", response_model=List[ValuationResponse])
+def list_valuations(
+    db: Session = Depends(get_db),
+    _: None = Depends(require_superuser),
+
+    user_id: Optional[int] = Query(None),
+    country_code: Optional[str] = Query(None),
+    category: Optional[str] = Query(None),
+    from_date: Optional[datetime] = Query(None),
+    to_date: Optional[datetime] = Query(None),
+):
+    query = db.query(ValuationReport)
+
+    if user_id:
+        query = query.filter(ValuationReport.user_id == user_id)
+
+    if country_code:
+        query = query.filter(
+            ValuationReport.country_code == country_code.upper()
+        )
+
+    if category:
+        query = query.filter(
+            ValuationReport.category == category
+        )
+
+    if from_date:
+        query = query.filter(
+            ValuationReport.created_at >= from_date
+        )
+
+    if to_date:
+        query = query.filter(
+            ValuationReport.created_at <= to_date
+        )
+
+    return query.order_by(
+        ValuationReport.created_at.desc()
+    ).all()
+
+
+@router.get("/valuations/{valuation_id}", response_model=ValuationDetailResponse)
+def get_valuation_details(
+    valuation_id: str,
+    db: Session = Depends(get_db),
+    _: None = Depends(require_superuser),
+):
+    valuation = db.query(ValuationReport).filter(
+        ValuationReport.valuation_id == valuation_id
+    ).first()
+
+    if not valuation:
+        raise HTTPException(404, "Valuation not found")
+
+    return valuation
+
+
+@router.get("/users/{user_id}/valuations", response_model=List[ValuationResponse])
+def get_user_valuations(
+    user_id: int,
+    db: Session = Depends(get_db),
+    _: None = Depends(require_superuser),
+):
+    user = db.query(User).filter(User.id == user_id).first()
+    if not user:
+        raise HTTPException(404, "User not found")
+
+    return (
+        db.query(ValuationReport)
+        .filter(ValuationReport.user_id == user_id)
+        .order_by(ValuationReport.created_at.desc())
+        .all()
+    )
+
+
+@router.delete("/valuations/{valuation_id}")
+def delete_valuation(
+    valuation_id: str,
+    db: Session = Depends(get_db),
+    _: None = Depends(require_superuser),
+):
+    valuation = db.query(ValuationReport).filter(
+        ValuationReport.valuation_id == valuation_id
+    ).first()
+
+    if not valuation:
+        raise HTTPException(404, "Valuation not found")
+
+    db.delete(valuation)
+    db.commit()
+
+    return {"message": "Valuation deleted successfully"}

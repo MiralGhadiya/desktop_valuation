@@ -21,3 +21,5 @@ class User(Base):
     email_verified_at = Column(DateTime, nullable=True)
 
     country = relationship("Country", back_populates="users")
+    
+    is_superuser = Column(Boolean, default=False)

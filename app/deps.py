@@ -36,3 +36,11 @@ def get_current_user(
         raise HTTPException(status_code=401, detail="User inactive")
 
     return user
+
+
+def require_superuser(
+    current_user: models.User = Depends(get_current_user)
+):
+    if not current_user.is_superuser:
+        raise HTTPException(403, "Superuser access required")
+    return current_user
