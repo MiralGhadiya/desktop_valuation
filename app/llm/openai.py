@@ -1,16 +1,30 @@
+#app/llm/openai.py
+
 import os
 import json
 from openai import OpenAI
 from dotenv import load_dotenv
 
+from app.utils.logger_config import app_logger as logger
+
+logger.info("Initializing OpenAI client")
+
 load_dotenv()
 
-client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
-print("OpenAI API configured.")
-print(client)
+OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
+if not OPENAI_API_KEY:
+    logger.error("OPENAI_API_KEY is not set")
+    raise RuntimeError("Missing OPENAI_API_KEY")
+
+client = OpenAI(api_key=OPENAI_API_KEY)
+
+logger.info("OpenAI API configured successfully")
+logger.debug("OpenAI client initialized")
 
 
 def generate_valuation_report(form_data: dict):
+    logger.info("Starting OpenAI valuation report generation")
+
     prompt = f"""
             You are an automated real estate valuation engine.
 
@@ -77,21 +91,26 @@ def generate_valuation_report(form_data: dict):
             }}
             }}
         """
-
-
-    response = client.chat.completions.create(
-        model="gpt-5.2",
-        messages=[{"role": "user", "content": prompt}],
-        response_format={"type": "json_object"},
-        temperature=0.1
-    )
-
-    content = response.choices[0].message.content
-
     try:
+        response = client.chat.completions.create(
+            model="gpt-5.2",
+            messages=[{"role": "user", "content": prompt}],
+            response_format={"type": "json_object"},
+            temperature=0.1,
+        )
+
+        content = response.choices[0].message.content
+        logger.debug("Raw OpenAI response received")
+
         parsed = json.loads(content)
+        logger.info("OpenAI valuation report parsed successfully")
         return parsed
-    except Exception as e:
-        print("JSON PARSE ERROR:", e)
-        print("RAW AI OUTPUT:", content)
+
+    except json.JSONDecodeError:
+        logger.error("OpenAI returned invalid JSON")
+        logger.debug(f"Raw OpenAI output: {content}")
         raise ValueError("AI did not return valid JSON")
+
+    except Exception:
+        logger.exception("OpenAI valuation generation failed")
+        raise

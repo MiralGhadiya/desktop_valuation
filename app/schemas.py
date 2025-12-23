@@ -12,7 +12,7 @@ class UserCreate(UserBase):
 
 
 class UserLogin(BaseModel):
-    username: str
+    email: EmailStr
     password: str
 
 
@@ -34,6 +34,23 @@ class UserCreate(UserBase):
     password: str
     
     
+class LogoutRequest(BaseModel):
+    refresh_token: str
+
+
+class RefreshTokenRequest(BaseModel):
+    refresh_token: str
+
+
+class TokenResponse(BaseModel):
+    access_token: str
+    refresh_token: str
+
+
+class ResendVerificationRequest(BaseModel):
+    email: EmailStr
+    
+
 class UserProfile(BaseModel):
     id: int
     username: str
@@ -43,6 +60,12 @@ class UserProfile(BaseModel):
 
     class Config:
         from_attributes = True
+        
+        
+class UserUpdate(BaseModel):
+    username: Optional[str] = None
+    email: Optional[EmailStr] = None
+    mobile_number: Optional[str] = None
         
         
 class ForgotPassword(BaseModel):

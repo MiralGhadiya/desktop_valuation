@@ -1,9 +1,17 @@
 # app/database.py
-
+import os
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker, declarative_base
+from dotenv import load_dotenv
+from app.utils.logger_config import app_logger as logger
 
-DATABASE_URL = "postgresql://postgres:root@localhost:5432/valuation_db"
+load_dotenv()
+
+DATABASE_URL = os.getenv("DATABASE_URL")
+if not DATABASE_URL:
+    raise RuntimeError("DATABASE_URL is not set")
+
+logger.info("Initializing database engine")
 
 engine = create_engine(DATABASE_URL)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)

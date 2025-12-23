@@ -1,11 +1,17 @@
+#app/routes/admin/dashboard.py
+
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 from sqlalchemy import func
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
+
 from app.deps import get_db, require_superuser
 from app.models import User
 from app.models.subscription import SubscriptionPlan, UserSubscription
 from app.models.valuation import ValuationReport
+from app.utils.logger_config import app_logger as logger
+
+datetime.now(timezone.utc)
 
 router = APIRouter(
     prefix="/admin/dashboard",
@@ -18,6 +24,8 @@ def dashboard_overview(
     db: Session = Depends(get_db),
     _: None = Depends(require_superuser),
 ):
+    logger.info("Admin dashboard: overview requested")
+
     total_users = db.query(func.count(User.id)).scalar()
     active_users = db.query(func.count(User.id)).filter(
         User.is_active == True
@@ -29,6 +37,8 @@ def dashboard_overview(
     ).scalar()
 
     total_valuations = db.query(func.count(ValuationReport.id)).scalar()
+
+    logger.debug("Admin dashboard: overview aggregation completed")
 
     return {
         "users": {
@@ -50,6 +60,8 @@ def dashboard_users(
     db: Session = Depends(get_db),
     _: None = Depends(require_superuser),
 ):
+    logger.info("Admin dashboard: users stats requested")
+
     verified = db.query(func.count(User.id)).filter(
         User.is_email_verified == True
     ).scalar()
@@ -62,10 +74,12 @@ def dashboard_users(
         User.is_active == False
     ).scalar()
 
-    last_30_days = datetime.utcnow() - timedelta(days=30)
+    last_30_days = datetime.now(timezone.utc) - timedelta(days=30)
     new_users_30d = db.query(func.count(User.id)).filter(
-        User.id.isnot(None)
-    ).filter(User.id > 0).scalar()
+        User.created_at >= last_30_days
+    ).scalar()
+
+    logger.debug("Admin dashboard: users stats aggregation completed")
 
     return {
         "email_verified": verified,
@@ -73,13 +87,15 @@ def dashboard_users(
         "inactive_users": inactive,
         "new_users_last_30_days": new_users_30d,
     }
-    
+
 
 @router.get("/subscriptions")
 def dashboard_subscriptions_country_wise(
     db: Session = Depends(get_db),
     _: None = Depends(require_superuser),
 ):
+    logger.info("Admin dashboard: subscriptions breakdown requested")
+
     rows = (
         db.query(
             SubscriptionPlan.country_code,
@@ -105,6 +121,8 @@ def dashboard_subscriptions_country_wise(
         .all()
     )
 
+    logger.debug("Admin dashboard: subscription aggregation completed")
+
     return [
         {
             "country": r.country_code,
@@ -122,13 +140,15 @@ def dashboard_subscriptions_country_wise(
         }
         for r in rows
     ]
-    
-    
+
+
 @router.get("/valuations")
 def dashboard_valuations(
     db: Session = Depends(get_db),
     _: None = Depends(require_superuser),
 ):
+    logger.info("Admin dashboard: valuation stats requested")
+
     by_category = (
         db.query(
             ValuationReport.category,
@@ -138,10 +158,12 @@ def dashboard_valuations(
         .all()
     )
 
-    last_30_days = datetime.utcnow() - timedelta(days=30)
+    last_30_days = datetime.now(timezone.utc) - timedelta(days=30)
     last_30d_count = db.query(func.count(ValuationReport.id)).filter(
         ValuationReport.created_at >= last_30_days
     ).scalar()
+
+    logger.debug("Admin dashboard: valuation aggregation completed")
 
     return {
         "by_category": [
@@ -150,13 +172,15 @@ def dashboard_valuations(
         ],
         "last_30_days": last_30d_count,
     }
-    
+
 
 @router.get("/countries")
 def dashboard_countries(
     db: Session = Depends(get_db),
     _: None = Depends(require_superuser),
 ):
+    logger.info("Admin dashboard: country-wise stats requested")
+
     subs_by_country = (
         db.query(
             UserSubscription.pricing_country_code,
@@ -174,6 +198,8 @@ def dashboard_countries(
         .group_by(ValuationReport.country_code)
         .all()
     )
+
+    logger.debug("Admin dashboard: country-wise aggregation completed")
 
     return {
         "subscriptions": [

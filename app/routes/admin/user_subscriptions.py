@@ -1,18 +1,22 @@
+#app/routes/admin/user_subscriptions.py
+
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 from typing import Optional, List
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 from app.deps import get_db, require_superuser
 from app.models import User
 from app.models.subscription import SubscriptionPlan, UserSubscription
 from app.schemas import UpdateSubscription, UserSubscriptionResponse, AssignSubscription
 
+from app.utils.logger_config import app_logger as logger
+
+
 router = APIRouter(
     prefix="/admin",
     tags=["admin-user-subscriptions"]
 )
-
 
 @router.get("/user-subscriptions", response_model=List[UserSubscriptionResponse])
 def list_all_user_subscriptions(
@@ -23,6 +27,11 @@ def list_all_user_subscriptions(
     plan_id: Optional[int] = Query(None),
     is_active: Optional[bool] = Query(None),
 ):
+    logger.info(
+        "Admin listing user subscriptions "
+        f"user_id={user_id} plan_id={plan_id} is_active={is_active}"
+    )
+    
     query = db.query(UserSubscription).join(SubscriptionPlan)
 
     if user_id:
@@ -35,6 +44,8 @@ def list_all_user_subscriptions(
         query = query.filter(UserSubscription.is_active == is_active)
 
     subs = query.order_by(UserSubscription.start_date.desc()).all()
+    
+    logger.debug(f"Admin fetched user subscriptions count={len(subs)}")
 
     return [
         UserSubscriptionResponse(
@@ -58,8 +69,11 @@ def get_user_subscriptions(
     db: Session = Depends(get_db),
     _: None = Depends(require_superuser),
 ):
+    logger.info(f"Admin fetching subscriptions for user_id={user_id}")
+    
     user = db.query(User).filter(User.id == user_id).first()
     if not user:
+        logger.warning(f"User not found while fetching subscriptions user_id={user_id}")
         raise HTTPException(404, "User not found")
 
     subs = (
@@ -68,6 +82,10 @@ def get_user_subscriptions(
         .filter(UserSubscription.user_id == user_id)
         .order_by(UserSubscription.start_date.desc())
         .all()
+    )
+    
+    logger.debug(
+        f"Admin fetched subscriptions for user_id={user_id} count={len(subs)}"
     )
 
     return [
@@ -93,8 +111,14 @@ def assign_subscription_to_user(
     db: Session = Depends(get_db),
     _: None = Depends(require_superuser),
 ):
+    logger.info(
+        f"Admin assigning subscription user_id={user_id} "
+        f"plan_id={data.plan_id} duration_days={data.duration_days}"
+    )
+
     user = db.query(User).filter(User.id == user_id).first()
     if not user:
+        logger.warning(f"User not found while assigning subscription user_id={user_id}")
         raise HTTPException(404, "User not found")
 
     plan = db.query(SubscriptionPlan).filter(
@@ -103,9 +127,12 @@ def assign_subscription_to_user(
     ).first()
 
     if not plan:
+        logger.warning(
+            f"Subscription plan not found while assigning plan_id={data.plan_id}"
+        )
         raise HTTPException(404, "Subscription plan not found")
 
-    start_date = datetime.utcnow()
+    start_date = datetime.now(timezone.utc)
     end_date = start_date + timedelta(days=data.duration_days)
 
     sub = UserSubscription(
@@ -121,6 +148,11 @@ def assign_subscription_to_user(
     db.add(sub)
     db.commit()
     db.refresh(sub)
+    
+    logger.info(
+        f"Subscription assigned sub_id={sub.id} "
+        f"user_id={user.id} plan_id={plan.id}"
+    )
 
     return UserSubscriptionResponse(
         id=sub.id,
@@ -142,23 +174,32 @@ def update_user_subscription(
     db: Session = Depends(get_db),
     _: None = Depends(require_superuser),
 ):
+    logger.info(f"Admin updating subscription sub_id={subscription_id}")
+
     sub = db.query(UserSubscription).filter(
         UserSubscription.id == subscription_id
     ).first()
 
-    if not sub:
-        raise HTTPException(404, "Subscription not found")
+    changes = []
 
     if data.extend_days:
         sub.end_date += timedelta(days=data.extend_days)
+        changes.append(f"extend_days={data.extend_days}")
 
     if data.reset_reports_used:
         sub.reports_used = 0
+        changes.append("reset_reports_used")
 
     if data.deactivate:
         sub.is_active = False
+        changes.append("deactivated")
 
     db.commit()
+
+    logger.info(
+        f"Subscription updated sub_id={subscription_id} "
+        f"changes={changes}"
+    )
 
     return {"message": "Subscription updated successfully"}
 
@@ -169,15 +210,20 @@ def cancel_subscription(
     db: Session = Depends(get_db),
     _: None = Depends(require_superuser),
 ):
+    logger.info(f"Admin cancelling subscription sub_id={subscription_id}")
+
     sub = db.query(UserSubscription).filter(
         UserSubscription.id == subscription_id
     ).first()
 
     if not sub:
+        logger.warning(f"Subscription not found during cancel sub_id={subscription_id}")
         raise HTTPException(404, "Subscription not found")
 
     sub.is_active = False
-    sub.end_date = datetime.utcnow()
+    sub.end_date = datetime.now(timezone.utc)
     db.commit()
+    
+    logger.info(f"Subscription cancelled sub_id={subscription_id}")
 
     return {"message": "Subscription cancelled"}

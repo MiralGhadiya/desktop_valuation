@@ -2,9 +2,15 @@
 
 from sqlalchemy.orm import Session
 from app.models.valuation import ValuationReport
+from app.utils.logger_config import app_logger as logger
 
 
 def save_valuation_report(db: Session, payload: dict) -> int:
+    logger.info(
+        f"Saving valuation report valuation_id={payload.get('valuation_id')} "
+        f"user_id={payload.get('user_id')}"
+    )
+    
     record = ValuationReport(
         valuation_id=payload["valuation_id"],
         user_id=payload["user_id"],
@@ -20,4 +26,10 @@ def save_valuation_report(db: Session, payload: dict) -> int:
     db.add(record)
     db.commit()
     db.refresh(record)
+    
+    logger.info(
+        f"Valuation report saved record_id={record.id} "
+        f"valuation_id={record.valuation_id}"
+    )
+
     return record.id

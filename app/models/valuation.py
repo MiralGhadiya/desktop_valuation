@@ -1,12 +1,14 @@
 #app/models/valuation.py
 
-from sqlalchemy import Column, Integer, String, DateTime, JSON, ForeignKey
+from sqlalchemy import Column, Integer, String, DateTime, JSON, ForeignKey, Text
+from sqlalchemy.sql import func
 from datetime import datetime
 from sqlalchemy.orm import relationship
 from app.database import Base
 from pydantic import BaseModel, EmailStr
 from typing import Optional
 from fastapi import Form    
+import uuid
 
 
 class ValuationReport(Base):
@@ -24,6 +26,26 @@ class ValuationReport(Base):
     subscription_id = Column(Integer, ForeignKey("user_subscriptions.id"), nullable=False)
     report_context = Column(JSON, nullable=False)
     pdf_path = Column(String, nullable=False)
+    
+    
+# class ValuationJob(Base):
+#     __tablename__ = "valuation_jobs"
+
+#     id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
+#     user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+#     subscription_id = Column(Integer, ForeignKey("user_subscriptions.id"), nullable=False)
+
+#     status = Column(String, nullable=False, default="queued")  # queued|processing|completed|failed
+#     category = Column(String, nullable=True)
+
+#     request_payload = Column(JSON, nullable=False)
+#     valuation_id = Column(String, nullable=True)
+#     pdf_path = Column(String, nullable=True)
+#     error_message = Column(Text, nullable=True)
+
+#     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+#     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False)
+
 
 
 class DesktopValuationForm(BaseModel):
@@ -41,7 +63,7 @@ class DesktopValuationForm(BaseModel):
     contact_number: str
     
     
-def DesktopValuationFormDep(
+def desktop_valuation_form_dep(
     country: str = Form(...),
     city_location: str = Form(...),
     full_address: str = Form(...),

@@ -1,7 +1,9 @@
+#app/router/admin/users.py
+
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 from typing import Optional, List
-from datetime import datetime
+from datetime import datetime, timezone
 
 from app.deps import get_db
 from app.deps import require_superuser
@@ -10,12 +12,13 @@ from app.models import User
 from app.services import auth_service
 from app.auth import hash_password
 from app.schemas import AdminUserResponse, AdminResetPassword
+from app.constants import USER_NOT_FOUND
+from app.utils.logger_config import app_logger as logger
 
 router = APIRouter(
     prefix="/admin/users",
     tags=["admin-users"]
 )
-
 
 @router.get("", response_model=List[AdminUserResponse])
 def list_users(
@@ -27,6 +30,12 @@ def list_users(
     country_id: Optional[int] = Query(None),
     search: Optional[str] = Query(None),
 ):
+    logger.info(
+        "Admin listing users "
+        f"is_active={is_active} verified={is_email_verified} "
+        f"country_id={country_id} search={search}"
+    )
+
     query = db.query(User)
 
     if is_active is not None:
@@ -46,6 +55,9 @@ def list_users(
             (User.email.ilike(f"%{search}%")) |
             (User.mobile_number.ilike(f"%{search}%"))
         )
+        
+    users = query.order_by(User.id.desc()).all()
+    logger.debug(f"Admin fetched users count={len(users)}")
 
     return query.order_by(User.id.desc()).all()
 
@@ -56,12 +68,15 @@ def get_user(
     db: Session = Depends(get_db),
     _: User = Depends(require_superuser),
 ):
+    logger.info(f"Admin fetching user user_id={user_id}")
+    
     user = db.query(User).filter(
         User.id == user_id
     ).first()
 
     if not user:
-        raise HTTPException(404, "User not found")
+        logger.warning(f"{USER_NOT_FOUND} user_id={user_id}")
+        raise HTTPException(404, USER_NOT_FOUND)
 
     return user
 
@@ -72,16 +87,22 @@ def toggle_user_active(
     db: Session = Depends(get_db),
     _: User = Depends(require_superuser),
 ):
+    logger.info(f"Admin toggling user active state user_id={user_id}")
+    
     user = db.query(User).filter(User.id == user_id).first()
 
     if not user:
-        raise HTTPException(404, "User not found")
+        logger.warning(f"{USER_NOT_FOUND} during toggle user_id={user_id}")
+        raise HTTPException(404, USER_NOT_FOUND)
 
     user.is_active = not user.is_active
     db.commit()
 
     if not user.is_active:
+        logger.info(f"User deactivated and sessions revoked user_id={user.id}")
         auth_service.revoke_all_refresh_tokens(db, user.id)
+    else:
+        logger.info(f"User activated user_id={user.id}")
 
     return {
         "message": "User status updated",
@@ -95,12 +116,17 @@ def force_logout_user(
     db: Session = Depends(get_db),
     _: User = Depends(require_superuser),
 ):
+    logger.info(f"Admin forcing logout user_id={user_id}")
+    
     user = db.query(User).filter(User.id == user_id).first()
 
     if not user:
-        raise HTTPException(404, "User not found")
+        logger.warning(f"{USER_NOT_FOUND} during force logout user_id={user_id}")
+        raise HTTPException(404, USER_NOT_FOUND)
 
     auth_service.revoke_all_refresh_tokens(db, user.id)
+    
+    logger.info(f"User logged out from all sessions user_id={user.id}")
 
     return {"message": "User logged out from all sessions"}
 
@@ -112,17 +138,23 @@ def verify_user_email(
     db: Session = Depends(get_db),
     _: User = Depends(require_superuser),
 ):
+    logger.info(f"Admin verifying email user_id={user_id}")
+    
     user = db.query(User).filter(User.id == user_id).first()
 
     if not user:
-        raise HTTPException(404, "User not found")
+        logger.warning(f"{USER_NOT_FOUND} during email verify user_id={user_id}")
+        raise HTTPException(404, USER_NOT_FOUND)
 
     if user.is_email_verified:
+        logger.info(f"Email already verified user_id={user_id}")
         return {"message": "Email already verified"}
 
     user.is_email_verified = True
-    user.email_verified_at = datetime.utcnow()
+    user.email_verified_at = datetime.now(timezone.utc)
     db.commit()
+    
+    logger.info(f"User email verified user_id={user_id}")
 
     return {"message": "User email verified"}
 
@@ -134,7 +166,10 @@ def admin_reset_password(
     db: Session = Depends(get_db),
     _: User = Depends(require_superuser),
 ):
+    logger.info(f"Admin resetting password user_id={user_id}")
+    
     if data.new_password != data.confirm_password:
+        logger.warning(f"Password mismatch during reset user_id={user_id}")
         raise HTTPException(
             status_code=400,
             detail="Passwords do not match"
@@ -143,11 +178,14 @@ def admin_reset_password(
     user = db.query(User).filter(User.id == user_id).first()
 
     if not user:
-        raise HTTPException(404, "User not found")
+        logger.warning(f"{USER_NOT_FOUND} during password reset user_id={user_id}")
+        raise HTTPException(404, USER_NOT_FOUND)
 
     user.hashed_password = hash_password(data.new_password)
     db.commit()
 
     auth_service.revoke_all_refresh_tokens(db, user.id)
+    
+    logger.info(f"User password reset and sessions revoked user_id={user.id}")
 
     return {"message": "User password reset successfully"}
