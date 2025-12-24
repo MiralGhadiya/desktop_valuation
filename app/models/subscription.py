@@ -36,13 +36,13 @@ class UserSubscription(Base):
     ip_country_code = Column(String, nullable=True)
     payment_country_code = Column(String, nullable=True)
     
-    # razorpay_order_id = Column(String, nullable=True)
-    # razorpay_payment_id = Column(String, nullable=True)
-    # razorpay_signature = Column(String, nullable=True)
-    # payment_status = Column(String, default="PENDING")  # PENDING | PAID | FAILED
-
-    start_date = Column(DateTime, nullable=False)
-    end_date = Column(DateTime, nullable=False)
+    razorpay_order_id = Column(String, nullable=True)
+    razorpay_payment_id = Column(String, nullable=True)
+    razorpay_signature = Column(String, nullable=True)
+    payment_status = Column(String, default="CREATED")  # CREATED | PENDING | PAID | FAILED | REFUNDED
+    
+    start_date = Column(DateTime, nullable=True)
+    end_date = Column(DateTime, nullable=True)
 
     reports_used = Column(Integer, default=0)
     is_active = Column(Boolean, default=True)

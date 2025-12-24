@@ -12,6 +12,8 @@ load_dotenv()
 EMAIL_USER = os.getenv("EMAIL_USER")
 EMAIL_PASSWORD = os.getenv("EMAIL_PASSWORD")
 
+SMTP_URL = "smtp.gmail.com"
+
 if not EMAIL_USER or not EMAIL_PASSWORD:
     logger.error("EMAIL_USER or EMAIL_PASSWORD not configured")
 
@@ -24,13 +26,13 @@ def send_reset_email(to_email: str, link: str):
         msg["From"] = EMAIL_USER
         msg["To"] = to_email
 
-        with smtplib.SMTP_SSL("smtp.gmail.com", 465) as server:
+        with smtplib.SMTP_SSL(SMTP_URL, 465) as server:
             server.login(EMAIL_USER, EMAIL_PASSWORD)
             server.send_message(msg)
 
         logger.info(f"Password reset email sent to={to_email}")
 
-    except Exception as e:
+    except Exception:
         logger.exception(f"Failed to send password reset email to={to_email}")
         raise
         
@@ -44,7 +46,7 @@ def send_verification_email(to_email: str, link: str):
         msg["From"] = EMAIL_USER
         msg["To"] = to_email
 
-        with smtplib.SMTP_SSL("smtp.gmail.com", 465) as server:
+        with smtplib.SMTP_SSL(SMTP_URL, 465) as server:
             server.login(EMAIL_USER, EMAIL_PASSWORD)
             server.send_message(msg)
             
@@ -76,7 +78,7 @@ def send_pdf_email(to_email: str, subject: str, message: str, pdf_path: str):
             )
             msg.attach(part)
 
-        server = smtplib.SMTP("smtp.gmail.com", 587)
+        server = smtplib.SMTP(SMTP_URL, 587)
         server.starttls()
         server.login(EMAIL_USER, EMAIL_PASSWORD)
         server.send_message(msg)
@@ -86,4 +88,34 @@ def send_pdf_email(to_email: str, subject: str, message: str, pdf_path: str):
 
     except Exception:
         logger.exception(f"Failed to send PDF email to={to_email}")
+        raise
+
+
+def send_subscription_expiry_email(to_email: str, plan_name: str, expiry_date):
+    logger.info(f"Sending subscription expiry reminder to={to_email}")
+
+    try:
+        body = f"""
+            Hello,
+
+            Your subscription plan "{plan_name}" will expire on {expiry_date.strftime('%Y-%m-%d')}.
+
+            Please renew your subscription to continue uninterrupted access.
+
+            Thank you.
+        """
+
+        msg = MIMEText(body)
+        msg["Subject"] = "Your Subscription Expires in 3 Days"
+        msg["From"] = EMAIL_USER
+        msg["To"] = to_email
+
+        with smtplib.SMTP_SSL(SMTP_URL, 465) as server:
+            server.login(EMAIL_USER, EMAIL_PASSWORD)
+            server.send_message(msg)
+
+        logger.info(f"Subscription expiry email sent to={to_email}")
+
+    except Exception:
+        logger.exception(f"Failed to send expiry email to={to_email}")
         raise

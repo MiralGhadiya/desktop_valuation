@@ -7,7 +7,6 @@ from typing import List, Optional
 from app.deps import get_db, require_superuser
 from app.models.subscription import SubscriptionPlan
 from app.schemas import SubscriptionPlanResponse, SubscriptionPlanCreate, SubscriptionPlanUpdate
-from app.constants import SUBSCRIPTION_PLAN_NOT_FOUND
 
 from app.utils.logger_config import app_logger as logger
 
@@ -15,6 +14,9 @@ router = APIRouter(
     prefix="/admin/subscription-plans",
     tags=["admin-subscription-plans"]
 )
+
+SUBSCRIPTION_PLAN_NOT_FOUND = "Subscription plan not found"
+
 
 @router.get("", response_model=List[SubscriptionPlanResponse])
 def list_subscription_plans(

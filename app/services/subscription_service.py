@@ -6,6 +6,7 @@ from fastapi import HTTPException
 
 from app.models.subscription import SubscriptionPlan, UserSubscription
 from app.utils.logger_config import app_logger as logger
+from app.utils.email import send_subscription_expiry_email
 
 
 def get_active_subscription(
@@ -71,9 +72,6 @@ def enforce_subscription(
 
     plan = sub.plan
 
-    if category not in plan.allowed_categories:
-        raise HTTPException(403, "Category not allowed for this plan")
-
     if plan.max_reports is not None and sub.reports_used >= plan.max_reports:
         raise HTTPException(403, "Report limit exceeded")
 
@@ -122,3 +120,84 @@ def expire_subscriptions(db: Session) -> int:
         logger.info("No subscriptions to expire")
 
     return count
+
+
+def send_expiry_reminders(db: Session):
+    today = datetime.utcnow().date()
+    sent = 0
+
+    logger.info(f"[EXPIRY REMINDER] Job started | today={today}")
+
+    subscriptions = (
+        db.query(UserSubscription)
+        .filter(
+            UserSubscription.end_date.isnot(None),
+            UserSubscription.is_active == True,
+            UserSubscription.is_expired == False,
+        )
+        .all()
+    )
+
+    logger.info(f"[EXPIRY REMINDER] Active subscriptions found={len(subscriptions)}")
+
+    for sub in subscriptions:
+        if not sub.end_date:
+            logger.warning(
+                f"[EXPIRY REMINDER] Subscription id={sub.id} has no end_date"
+            )
+            continue
+
+        days_left = (sub.end_date.date() - today).days
+
+        logger.info(
+            f"[EXPIRY REMINDER] sub_id={sub.id} "
+            f"user_id={sub.user_id} "
+            f"end_date={sub.end_date.date()} "
+            f"days_left={days_left}"
+        )
+
+        if days_left in (1, 2, 3):
+            user = sub.user
+
+            if not user:
+                logger.warning(
+                    f"[EXPIRY REMINDER] sub_id={sub.id} has no user relation"
+                )
+                continue
+
+            if not user.email:
+                logger.warning(
+                    f"[EXPIRY REMINDER] user_id={user.id} has no email"
+                )
+                continue
+
+            logger.info(
+                f"[EXPIRY REMINDER] Sending email | "
+                f"user_id={user.id} email={user.email} "
+                f"plan={sub.plan.name} expires_in={days_left} days"
+            )
+
+            try:
+                send_subscription_expiry_email(
+                    to_email=user.email,
+                    plan_name=sub.plan.name,
+                    expiry_date=sub.end_date,
+                )
+                sent += 1
+
+            except Exception:
+                logger.exception(
+                    f"[EXPIRY REMINDER] FAILED sending email | "
+                    f"user_id={user.id} sub_id={sub.id}"
+                )
+
+        else:
+            logger.debug(
+                f"[EXPIRY REMINDER] Skipped | sub_id={sub.id} days_left={days_left}"
+            )
+
+    logger.info(
+        f"[EXPIRY REMINDER] Job finished | emails_sent={sent}"
+    )
+
+    return {"emails_sent": sent}

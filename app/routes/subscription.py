@@ -2,7 +2,7 @@
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy.orm import Session
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timezone
 
 from app.deps import get_db, get_current_user
 from app.models import User
@@ -32,62 +32,6 @@ def list_plans(
         SubscriptionPlan.country_code == country,
         SubscriptionPlan.is_active == True,
     ).all()
-    
-
-@router.post("/buy/{plan_id}")
-def buy_plan(
-    plan_id: int,
-    request: Request,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
-):
-    
-    logger.info(f"User {current_user.id} attempting to buy plan {plan_id}")
-
-    plan = db.query(SubscriptionPlan).filter(
-        SubscriptionPlan.id == plan_id,
-        SubscriptionPlan.is_active == True
-    ).first()
-
-    if not plan:
-        raise HTTPException(404, "Plan not found")
-
-    ip_country = request.state.ip_country
-    user_country = current_user.country.country_code
-
-    # FINAL pricing country (until payment integration)
-    pricing_country = ip_country or user_country
-
-    if pricing_country != plan.country_code:
-        logger.warning(
-            f"Subscription country mismatch user_id={current_user.id} "
-            f"pricing={pricing_country} plan={plan.country_code}"
-        )
-        raise HTTPException(
-            403,
-            "Plan pricing country mismatch. Please purchase correct regional plan."
-        )
-
-    sub = UserSubscription(
-        user_id=current_user.id,
-        plan_id=plan.id,
-        pricing_country_code=pricing_country,
-        ip_country_code=ip_country,
-        start_date=datetime.now(timezone.utc),
-        end_date=datetime.now(timezone.utc) + timedelta(days=30),
-        is_active=True,
-    )
-    db.add(sub)
-    db.commit()
-    db.refresh(sub)
-    
-    logger.info(
-        f"Subscription purchased user_id={current_user.id} "
-        f"plan_id={plan.id} country={pricing_country}"
-    )
-
-
-    return sub
 
 
 @router.get("/my-plans")
@@ -144,23 +88,35 @@ def subscription_history(
         .all()
     )
 
-    return [
-        {
-            "subscription_id": s.id,
-            "plan_name": s.plan.name,
-            "country": s.plan.country_code,
-            "price": s.plan.price,
-            "currency": s.plan.currency,
-            "max_reports": s.plan.max_reports,
-            "reports_used": s.reports_used,
-            "start_date": s.start_date,
-            "end_date": s.end_date,
-            "is_active": s.is_active,
-            "expired": s.end_date < datetime.now(timezone.utc),
-            "purchased_on": s.start_date,
-        }
-        for s in plans
-    ]
+    now = datetime.now(timezone.utc)
+
+    result = []
+    for s in plans:
+        end_date = s.end_date
+
+        # ✅ normalize DB datetime
+        if end_date and end_date.tzinfo is None:
+            end_date = end_date.replace(tzinfo=timezone.utc)
+
+        result.append(
+            {
+                "subscription_id": s.id,
+                "plan_name": s.plan.name,
+                "country": s.plan.country_code,
+                "price": s.plan.price,
+                "currency": s.plan.currency,
+                "max_reports": s.plan.max_reports,
+                "reports_used": s.reports_used,
+                "start_date": s.start_date,
+                "end_date": s.end_date,
+                "is_active": s.is_active,
+                "expired": end_date < now if end_date else False,
+                "purchased_on": s.start_date,
+            }
+        )
+
+    return result
+
 
 
 @router.get("/default")

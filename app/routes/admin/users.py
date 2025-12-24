@@ -5,20 +5,20 @@ from sqlalchemy.orm import Session
 from typing import Optional, List
 from datetime import datetime, timezone
 
-from app.deps import get_db
-from app.deps import require_superuser
+from app.deps import get_db, require_superuser
 
 from app.models import User
 from app.services import auth_service
 from app.auth import hash_password
 from app.schemas import AdminUserResponse, AdminResetPassword
-from app.constants import USER_NOT_FOUND
 from app.utils.logger_config import app_logger as logger
 
 router = APIRouter(
     prefix="/admin/users",
     tags=["admin-users"]
 )
+
+USER_NOT_FOUND = "User not found"
 
 @router.get("", response_model=List[AdminUserResponse])
 def list_users(

@@ -1,7 +1,7 @@
 from fastapi import FastAPI, Request
 
 from app.database import engine, Base
-from app.routes import auth as user_auth, valuation, subscription
+from app.routes import auth as user_auth, valuation, subscription, payment
 from app.routes.admin import (
     auth,
     users,
@@ -11,6 +11,8 @@ from app.routes.admin import (
     dashboard,
 )
 from app.middleware.ip_country import get_ip_country, get_client_ip
+from fastapi.middleware.cors import CORSMiddleware
+
 from app.utils.logger_config import app_logger as logger
 
 logger.info("Starting Desktop Valuation API")
@@ -20,9 +22,20 @@ logger.info("Database tables ensured")
 
 app = FastAPI(title="Desktop Valuation API")
 
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+
 app.include_router(user_auth.router)
 app.include_router(valuation.router)
 app.include_router(subscription.router)
+app.include_router(payment.router)
 
 app.include_router(auth.router)
 app.include_router(users.router)

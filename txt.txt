@@ -2,13 +2,24 @@
 2. If one plan is already baught and user buys another one then user gets to select from which plan he wants to generate report. - Done
 3. Admin panel apis which all are have not been made. - Done
 4. Add logger. - Done
-5. Try to add payment thing in last.
+5. Try to add payment thing in last. - Done
 6. versions of reports according to subscription plan.
 
 - create put api of edit user details - Done
 - In login api, change username with email in payload - Done
 - refactor whole code with sonarqube - Done for now
 - Check all the apis - Done
-- Final testing 
-- Add api to send mail to user for 3 days of your subscription is expiring in 3 days
-- add logic of if expired then should not get to use the subscription
+
+- Add api to send mail to user for 3 days of your subscription is expiring in 3 days - Done
+- add logic of if expired then should not get to use the subscription - Done
+- Add logic to auto expire subscription add celery - Done
+
+- Final testing - Done
+
+- sub plan history not working  - Done
+
+
+
+
+1. celery -A app.celery_app:celery_app worker -l info --pool=solo
+2. celery -A app.celery_app:celery_app beat -l info

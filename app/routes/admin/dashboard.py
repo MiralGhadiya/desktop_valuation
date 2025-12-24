@@ -76,7 +76,7 @@ def dashboard_users(
 
     last_30_days = datetime.now(timezone.utc) - timedelta(days=30)
     new_users_30d = db.query(func.count(User.id)).filter(
-        User.created_at >= last_30_days
+        User.email_verified_at >= last_30_days
     ).scalar()
 
     logger.debug("Admin dashboard: users stats aggregation completed")

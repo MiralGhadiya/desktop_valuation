@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Razorpay Backend Test</title>
+</head>
+<body>
+
+<h2>Razorpay Payment Test</h2>
+
+<button onclick="createOrder()">Create Order & Pay</button>
+
+<pre id="log"></pre>
+
+<!-- Razorpay Checkout SDK -->
+<script src="https://checkout.razorpay.com/v1/checkout.js"></script>
+
+<script>
+  const API_BASE_URL = "https://9fe17ab3aae1.ngrok-free.app"; // change if needed
+  const ACCESS_TOKEN = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiI2IiwiZXhwIjoxNzY2NTU5MDM1LCJ0eXBlIjoiYWNjZXNzIn0.ToFF54ZauPjhBSLonfUts5rLQXsKEwoNPtiLuC_KPsU";
+
+
+  const log = (msg) => {
+    document.getElementById("log").textContent += "\n" + msg;
+  };
+
+  async function createOrder() {
+    log("Creating order...");
+
+    const res = await fetch(`${API_BASE_URL}/payment/create-order/2`, {
+      method: "POST",
+      credentials: "include", // VERY IMPORTANT (auth)
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${ACCESS_TOKEN}`
+      },
+    });
+
+    const data = await res.json();
+    console.log(data);
+    log("Order created: " + JSON.stringify(data, null, 2));
+
+    openCheckout(data);
+  }
+
+  function openCheckout(order) {
+    const options = {
+      key: order.razorpay_key,
+      amount: order.amount,
+      currency: order.currency,
+      order_id: order.order_id,
+      name: "Subscription Test",
+      description: "Testing Razorpay",
+      handler: async function (response) {
+        log("Payment Success!");
+        log(JSON.stringify(response, null, 2));
+
+        await verifyPayment(response);
+      },
+      theme: {
+        color: "#3399cc"
+      }
+    };
+
+    const rzp = new Razorpay(options);
+    rzp.open();
+  }
+
+  async function verifyPayment(response) {
+    log("Verifying payment...");
+
+    const res = await fetch(`${API_BASE_URL}/payment/verify`, {
+      method: "POST",
+      credentials: "include", // VERY IMPORTANT
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${ACCESS_TOKEN}`,
+      },
+      body: JSON.stringify({
+        razorpay_order_id: response.razorpay_order_id,
+        razorpay_payment_id: response.razorpay_payment_id,
+        razorpay_signature: response.razorpay_signature,
+      }),
+    });
+
+    const data = await res.json();
+    log("Verify response:");
+    log(JSON.stringify(data, null, 2));
+  }
+</script>
+
+</body>
+</html>

@@ -113,7 +113,7 @@ def get_user_valuations(
     return valuations
 
 
-@router.delete("/valuations/{valuation_id}")
+@router.delete("/valuations/{valuation_id}/delete")
 def delete_valuation(
     valuation_id: str,
     db: Session = Depends(get_db),
