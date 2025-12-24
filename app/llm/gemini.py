@@ -1,9 +1,8 @@
 #app/llm/gemini.py
 
-import google.generativeai as genai
 import os
 import json
-
+import google.generativeai as genai
 from app.utils.logger_config import app_logger as logger
 
 logger.info("Initializing Gemini client")

@@ -1,12 +1,13 @@
 #app/services/subscription_service.py
 
+from fastapi import HTTPException
 from sqlalchemy.orm import Session
 from datetime import datetime, timezone
-from fastapi import HTTPException
 
-from app.models.subscription import SubscriptionPlan, UserSubscription
-from app.utils.logger_config import app_logger as logger
 from app.utils.email import send_subscription_expiry_email
+from app.models.subscription import SubscriptionPlan, UserSubscription
+
+from app.utils.logger_config import app_logger as logger
 
 
 def get_active_subscription(

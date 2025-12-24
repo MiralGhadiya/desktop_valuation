@@ -1,23 +1,29 @@
 # app/routes/valuation.py
 
 import os
-from fastapi import APIRouter, HTTPException, UploadFile, File, Depends, Form
-from fastapi.responses import FileResponse
-from app.utils.pdf_generator import render_html, generate_pdf_from_html
-from sqlalchemy.orm import Session
+import uuid
+from datetime import datetime
 from app.database import get_db
-from app.services.valuation_service import save_valuation_report
-from app.models.valuation import DesktopValuationForm, desktop_valuation_form_dep
+from sqlalchemy.orm import Session
+from fastapi.responses import FileResponse
+from fastapi import APIRouter, HTTPException, UploadFile, File, Depends, Form
+
 from app.llm.openai import generate_valuation_report
 from app.llm.gemini import generate_valuation_summary
-from app.services.subscription_service import enforce_subscription, increment_usage
-from app.utils.email import send_pdf_email
+
 from app.deps import get_current_user
+
+from app.utils.email import send_pdf_email
+from app.utils.pdf_generator import render_html, generate_pdf_from_html
+
+from app.services.valuation_service import save_valuation_report
+from app.services.subscription_service import enforce_subscription, increment_usage
+
 from app.models import User, ValuationReport
-from datetime import datetime
-import uuid
+from app.models.valuation import DesktopValuationForm, desktop_valuation_form_dep
 
 from app.utils.logger_config import app_logger as logger
+
 
 def build_report_context(ai_json, user_input):
 

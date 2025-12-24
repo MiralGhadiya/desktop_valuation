@@ -1,7 +1,8 @@
 #app/services/country_service.py
 
-from sqlalchemy.orm import Session
 from app.models import Country
+from sqlalchemy.orm import Session
+
 from app.utils.logger_config import app_logger as logger
 
 

@@ -1,8 +1,8 @@
 #app/routes/admin/subscription_plans.py
 
-from fastapi import APIRouter, Depends, HTTPException, Query
-from sqlalchemy.orm import Session
 from typing import List, Optional
+from sqlalchemy.orm import Session
+from fastapi import APIRouter, Depends, HTTPException, Query
 
 from app.deps import get_db, require_superuser
 from app.models.subscription import SubscriptionPlan

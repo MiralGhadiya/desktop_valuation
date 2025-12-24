@@ -1,9 +1,11 @@
 #app/services/aut_service.py
 
-from datetime import datetime, timezone
 from sqlalchemy.orm import Session
+from datetime import datetime, timezone
 from app.models import User, RefreshToken
+
 from app.utils.logger_config import app_logger as logger
+
 
 def store_refresh_token(
     db: Session,

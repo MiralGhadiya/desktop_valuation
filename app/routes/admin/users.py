@@ -1,22 +1,25 @@
 #app/router/admin/users.py
 
-from fastapi import APIRouter, Depends, HTTPException, Query
-from sqlalchemy.orm import Session
 from typing import Optional, List
+from sqlalchemy.orm import Session
 from datetime import datetime, timezone
+from fastapi import APIRouter, Depends, HTTPException, Query
 
+from app.auth import hash_password
 from app.deps import get_db, require_superuser
 
 from app.models import User
 from app.services import auth_service
-from app.auth import hash_password
 from app.schemas import AdminUserResponse, AdminResetPassword
+
 from app.utils.logger_config import app_logger as logger
+
 
 router = APIRouter(
     prefix="/admin/users",
     tags=["admin-users"]
 )
+
 
 USER_NOT_FOUND = "User not found"
 

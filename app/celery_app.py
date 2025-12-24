@@ -1,6 +1,5 @@
 from celery import Celery
 from celery.schedules import crontab
-from datetime import timedelta
 
 celery_app = Celery(
     "app",

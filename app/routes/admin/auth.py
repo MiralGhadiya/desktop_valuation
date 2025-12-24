@@ -1,24 +1,23 @@
 #app/routes/admin/auth.py
 
-from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
-
-from app.deps import get_db
-from app.deps import require_superuser
+from fastapi import APIRouter, Depends, HTTPException
 
 from app.models import User
-from app.schemas import AdminLogin, AdminProfile
-from app.schemas import ChangePassword
-
-from app.auth import verify_password, create_access_token, hash_password
 from app.services import auth_service
+from app.schemas import AdminLogin, AdminProfile, ChangePassword
+
+from app.deps import get_db, require_superuser
+from app.auth import verify_password, create_access_token, hash_password
 
 from app.utils.logger_config import app_logger as logger
+
 
 router = APIRouter(
     prefix="/admin",
     tags=["admin-auth"]
 )
+
 
 @router.post("/login")
 def admin_login(

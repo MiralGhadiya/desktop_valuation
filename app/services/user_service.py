@@ -1,8 +1,10 @@
 # app/services/user_service.py
 
-from sqlalchemy.orm import Session
 from app.models import User
+from sqlalchemy.orm import Session
+
 from app.auth import hash_password, verify_password
+
 from app.utils.logger_config import app_logger as logger
 
 

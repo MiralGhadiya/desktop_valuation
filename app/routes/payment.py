@@ -1,13 +1,14 @@
 import os
 import razorpay
-from fastapi import APIRouter, Depends, HTTPException, Request
+from dotenv import load_dotenv
 from sqlalchemy.orm import Session
 from datetime import datetime, timedelta, timezone
-from dotenv import load_dotenv
 from razorpay.errors import SignatureVerificationError
+from fastapi import APIRouter, Depends, HTTPException, Request
 
 from app.deps import get_db, get_current_user
 from app.models import SubscriptionPlan, UserSubscription, User
+
 from app.utils.logger_config import app_logger as logger
 
 load_dotenv()
@@ -158,7 +159,7 @@ def verify_payment(
     sub.start_date = now
     sub.end_date = now + timedelta(days=30)
 
-    db.commit()
+    db.commit() 
     return {"message": "Payment successful & subscription activated"}
 
 

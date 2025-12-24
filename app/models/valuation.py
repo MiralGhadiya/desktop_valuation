@@ -1,14 +1,13 @@
 #app/models/valuation.py
 
-from sqlalchemy import Column, Integer, String, DateTime, JSON, ForeignKey, Text
-from sqlalchemy.sql import func
+from fastapi import Form   
+from typing import Optional 
 from datetime import datetime
 from sqlalchemy.orm import relationship
-from app.database import Base
 from pydantic import BaseModel, EmailStr
-from typing import Optional
-from fastapi import Form    
-import uuid
+from sqlalchemy import Column, Integer, String, DateTime, JSON, ForeignKey
+
+from app.database import Base
 
 
 class ValuationReport(Base):

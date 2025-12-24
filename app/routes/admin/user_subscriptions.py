@@ -1,13 +1,15 @@
 #app/routes/admin/user_subscriptions.py
 
-from fastapi import APIRouter, Depends, HTTPException, Query
-from sqlalchemy.orm import Session
 from typing import Optional, List
+from sqlalchemy.orm import Session
 from datetime import datetime, timedelta, timezone
+from fastapi import APIRouter, Depends, HTTPException, Query
 
 from app.deps import get_db, require_superuser
+
 from app.models import User
 from app.models.subscription import SubscriptionPlan, UserSubscription
+
 from app.schemas import UpdateSubscription, UserSubscriptionResponse, AssignSubscription
 
 from app.utils.logger_config import app_logger as logger
@@ -17,6 +19,7 @@ router = APIRouter(
     prefix="/admin",
     tags=["admin-user-subscriptions"]
 )
+
 
 @router.get("/user-subscriptions", response_model=List[UserSubscriptionResponse])
 def list_all_user_subscriptions(

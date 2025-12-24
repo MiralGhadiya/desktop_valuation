@@ -1,23 +1,27 @@
 # app/routes/auth.py
 
 import secrets
-from fastapi import APIRouter, Depends, HTTPException, Request
+from app.auth import pwd_context
 from sqlalchemy.orm import Session
 from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
-from app.auth import pwd_context
 from datetime import datetime, timedelta, timezone
-from app.models import EmailVerificationToken, User, SubscriptionPlan,UserSubscription, PasswordResetToken
-from app import schemas
-from app.utils.email import send_reset_email, send_verification_email
-from app.deps import get_db
-from app.deps import get_current_user
+from fastapi import APIRouter, Depends, HTTPException, Request
+
 from app.utils.phone import get_country_from_mobile
+from app.utils.email import send_reset_email, send_verification_email
+
+from app.deps import get_db, get_current_user
 from app.auth import verify_password, create_access_token, create_refresh_token
+
+from app import schemas
 from app.services import user_service, country_service, auth_service
+from app.models import EmailVerificationToken, User, SubscriptionPlan, UserSubscription, PasswordResetToken
+
 from app.utils.logger_config import app_logger as logger
 
 datetime.now(timezone.utc)
+
 
 router = APIRouter()
 

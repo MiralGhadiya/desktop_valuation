@@ -1,7 +1,7 @@
 #app/models/auth.py
 
-from sqlalchemy import Column, Integer, String, Boolean, DateTime, ForeignKey
 from datetime import datetime
+from sqlalchemy import Column, Integer, String, Boolean, DateTime, ForeignKey
 
 from app.database import Base
 
