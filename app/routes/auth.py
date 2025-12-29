@@ -133,7 +133,6 @@ def resend_verification_email(
 ):
     user = db.query(User).filter(User.email == data.email).first()
 
-    # Do NOT reveal whether user exists (security)
     if not user:
         return {
             "message": "If this email is registered, a verification link has been sent"
@@ -145,13 +144,11 @@ def resend_verification_email(
             detail="Email is already verified"
         )
 
-    # Revoke all previous unused verification tokens
     db.query(EmailVerificationToken).filter(
         EmailVerificationToken.user_id == user.id,
         EmailVerificationToken.used == False,
     ).update({"used": True})
 
-    # Generate new token
     raw_token = secrets.token_urlsafe(48)
     hashed_token = pwd_context.hash(raw_token)
 
@@ -238,7 +235,6 @@ def refresh_token(
 
     token_record.is_revoked = True
 
-    # Create new tokens
     access_token = create_access_token(
         {"sub": str(token_record.user_id)}
     )
@@ -246,7 +242,6 @@ def refresh_token(
         {"sub": str(token_record.user_id)}
     )
 
-    # Store new refresh token
     auth_service.store_refresh_token(
         db=db,
         user_id=token_record.user_id,
@@ -283,7 +278,7 @@ def update_profile(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    # Check email uniqueness
+    
     if data.email and data.email != current_user.email:
         existing_email = user_service.get_user_by_email(db, data.email)
         if existing_email:
@@ -294,7 +289,6 @@ def update_profile(
         current_user.email = data.email
         current_user.is_email_verified = False  # re-verify if email changes
 
-    # Check mobile uniqueness
     if data.mobile_number and data.mobile_number != current_user.mobile_number:
         existing_mobile = user_service.get_user_by_mobile(db, data.mobile_number)
         if existing_mobile:
@@ -304,7 +298,6 @@ def update_profile(
             )
         current_user.mobile_number = data.mobile_number
 
-    # Update username
     if data.username:
         current_user.username = data.username
 
@@ -415,38 +408,6 @@ def reset_password_page(request: Request):
         "reset_password.html",
         {"request": request}
     )
-
-
-
-# @router.post("/logout")
-# def logout(
-#     data: schemas.LogoutRequest,
-#     db: Session = Depends(get_db),
-#     current_user: User = Depends(get_current_user),
-# ):
-#     """
-#     Logout only the current device by revoking the provided refresh token
-#     """
-
-#     revoked = auth_service.revoke_refresh_token(
-#         db=db,
-#         user_id=current_user.id,
-#         refresh_token=data.refresh_token,
-#         pwd_context=pwd_context,
-#     )
-
-#     if not revoked:
-#         raise HTTPException(
-#             status_code=400,
-#             detail="Invalid or already revoked refresh token"
-#         )
-
-#     logger.info(
-#         f"User single-device logout user_id={current_user.id}"
-#     )
-
-#     return {"message": "Logged out from this device successfully"}
-
 
 
 @router.post("/logout")

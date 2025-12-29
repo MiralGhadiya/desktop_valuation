@@ -3,33 +3,31 @@ from celery.schedules import crontab
 
 celery_app = Celery(
     "app",
-    broker="redis://localhost:6379/0",
-    backend="redis://localhost:6379/1",
+    broker="redis://127.0.0.1:6379/0",
+    backend="redis://127.0.0.1:6379/1",
 )
 
 celery_app.conf.update(
+    broker_connection_retry_on_startup=True,
+    task_serializer="json",
+    accept_content=["json"],
+    result_serializer="json",
     timezone="UTC",
     enable_utc=True,
 )
 
-# 🔥 EXPLICIT IMPORTS (THIS FIXES IT)
 celery_app.conf.imports = (
     "app.tasks.subscription_tasks",
+    "app.tasks.valuation_tasks",
 )
 
 celery_app.conf.beat_schedule = {
-    "expire-subscriptions-every-30-seconds": {
+    "expire-subscriptions-daily": {
         "task": "app.tasks.subscription_tasks.expire_subscriptions_task",
-        # "schedule": timedelta(seconds=30),
-        "schedule" : crontab(hour=0, minute=0),
-    }
-}
-
-
-celery_app.conf.beat_schedule.update({
+        "schedule": crontab(hour=0, minute=0),
+    },
     "send-subscription-expiry-reminders-daily": {
         "task": "app.tasks.subscription_tasks.send_expiry_reminders_task",
-        "schedule": crontab(hour=9, minute=0),  # every day at 9 AM UTC
-        # "schedule": timedelta(seconds=10),
-    }
-})
+        "schedule": crontab(hour=9, minute=0),
+    },
+}

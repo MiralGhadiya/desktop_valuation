@@ -99,7 +99,6 @@ def expire_subscriptions(db: Session) -> int:
 
     now = datetime.utcnow()
 
-    # Fetch active subscriptions only
     subs = (
         db.query(UserSubscription)
         .filter(

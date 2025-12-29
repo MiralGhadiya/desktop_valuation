@@ -2,135 +2,29 @@
 
 import os
 import uuid
+from fastapi import Request
 from datetime import datetime
 from app.database import get_db
 from sqlalchemy.orm import Session
 from fastapi.responses import FileResponse
 from fastapi import APIRouter, HTTPException, UploadFile, File, Depends, Form
 
-from app.llm.openai import generate_valuation_report
-from app.llm.gemini import generate_valuation_summary
+# from app.llm.openai import generate_valuation_report
+# from app.llm.gemini import generate_valuation_summary
 
 from app.deps import get_current_user
+from app.tasks.valuation_tasks import process_valuation_job
 
-from app.utils.email import send_pdf_email
-from app.utils.pdf_generator import render_html, generate_pdf_from_html
+# from app.utils.email import send_pdf_email
+# from app.utils.pdf_generator import render_html, generate_pdf_from_html
 
-from app.services.valuation_service import save_valuation_report
+# from app.services.valuation_service import save_valuation_report
 from app.services.subscription_service import enforce_subscription, increment_usage
 
 from app.models import User, ValuationReport
-from app.models.valuation import DesktopValuationForm, desktop_valuation_form_dep
+from app.models.valuation import DesktopValuationForm, ValuationJob, desktop_valuation_form_dep
 
 from app.utils.logger_config import app_logger as logger
-
-
-def build_report_context(ai_json, user_input):
-
-    # -------- PROPERTY IDENTIFICATION --------
-    property_identification = {
-        "property_address": ai_json["property_details"]["address"],
-        "valuation_id": f"DVP-{uuid.uuid4().hex[:8].upper()}",
-        "date_of_report": datetime.now().strftime("%d-%b-%Y"),
-        "purpose_of_valuation": user_input["purpose_of_valuation"],
-        "report_type": "Desktop Valuation (Automated)",
-        "client_name": user_input["full_name"],
-        "contact_information": {
-            "email": user_input["email"],
-            "phone": user_input["contact_number"]
-        }
-    }
-
-    # -------- PROPERTY SUMMARY --------
-    property_summary = {
-        "property_type": ai_json["property_details"]["property_type"],
-        "land_area": f"{ai_json['property_details']['land_area_sqft']} sqft",
-        "built_up_area": f"{ai_json['property_details']['built_up_area_sqft']} sqft",
-        "zoning": "Residential",
-        "title_details": "Not Available",
-        "construction_year": f"{ai_json['property_details']['age_years']} years old",
-        "structure": "RCC Construction",
-        "car_parking": "Available",
-        "ownership_type": "Freehold",
-        "occupancy": "Owner Occupied",
-        "local_authority": ai_json["property_details"]["city"].title(),
-        "last_sale_date": "N/A",
-        "last_sale_price": "N/A",
-        "customer_estimate": user_input.get("estimated_market_value", "N/A")
-    }
-
-    # -------- COMPARABLE SALES --------
-    comparable_sales = []
-    for c in ai_json["comparables_used"]:
-        comparable_sales.append({
-            "address": c["address"],
-            "beds": "-",      # AI JSON does not provide beds
-            "baths": "-",     # AI JSON does not provide baths
-            "land_area": c["land_area"],
-            "sale_date": "N/A",
-            "sale_price": c["sale_price"],
-            "comparison": c["adjustment_reason"],
-            "distance": f"{c['distance_km']} km"
-        })
-
-    # -------- COMPARABLE SUMMARY --------
-    comparable_analysis_summary = {
-        "average_comparable_value": ai_json["predicted_value"]["mid_value"],
-        "adjusted_subject_estimate": ai_json["predicted_value"]["fair_market_value"]
-    }
-
-    # -------- THREE-TIER --------
-    three_tier_valuation = {
-        "conservative_value": ai_json["predicted_value"]["low_value"],
-        "mid_range_value": ai_json["predicted_value"]["mid_value"],
-        "high_value": ai_json["predicted_value"]["high_value"]
-    }
-
-    # -------- RISK ANALYSIS --------
-    valuation_risk_analysis = {
-        "value_range": f"{ai_json['predicted_value']['low_value']} - {ai_json['predicted_value']['high_value']}",
-        "confidence_index": ai_json["predicted_value"]["confidence_score"],
-        "market_risk_score": ai_json["bank_lending_model"]["risk_level"],
-        "property_risk_score": "Moderate",
-        "recommended_ltv": ai_json["bank_lending_model"]["recommended_ltv"],
-        "validity": "45 Days"
-    }
-
-    # -------- MARKET COMMENTARY --------
-    market_commentary = ai_json["buy_sell_recommendation"]["reasoning"]
-
-    # -------- SWOT --------
-    swot_analysis = {
-        "strengths": ["Good locality demand", "Stable RCC structure", "Moderate appreciation potential"],
-        "weaknesses": ["Property age moderate", "Average liquidity"],
-        "opportunities": ["Growing micro-market demand", "Future redevelopment potential"],
-        "threats": ["Interest rate fluctuations", "Market corrections"]
-    }
-
-    # -------- FORECAST (5 years) --------
-    growth = ai_json["forecast"]["growth_rate_percent"] / 100
-    base = ai_json["predicted_value"]["fair_market_value"]
-    value_forecast = []
-
-    for i in range(1, 6):
-        projected = int(base * ((1 + growth) ** i))
-        value_forecast.append({
-            "year": datetime.now().year + i,
-            "growth_rate": f"{ai_json['forecast']['growth_rate_percent']}%",
-            "forecast_value": projected
-        })
-
-    return {
-        "property_identification": property_identification,
-        "property_summary": property_summary,
-        "comparable_sales": comparable_sales,
-        "comparable_analysis_summary": comparable_analysis_summary,
-        "three_tier_valuation": three_tier_valuation,
-        "valuation_risk_analysis": valuation_risk_analysis,
-        "market_commentary": market_commentary,
-        "swot_analysis": swot_analysis,
-        "value_forecast": value_forecast
-    }
 
 
 router = APIRouter()
@@ -141,6 +35,7 @@ os.makedirs(UPLOAD_DIR, exist_ok=True)
 
 @router.post("/create")
 async def create_valuation_form(
+    request: Request,
     subscription_id: int = Form(...),
     form: DesktopValuationForm = Depends(desktop_valuation_form_dep),
     attachment: UploadFile = File(None),
@@ -189,57 +84,87 @@ async def create_valuation_form(
         )
         
         logger.info("Generating valuation via OpenAI")
-        ai_json = generate_valuation_report(user_input)
         
-        context = build_report_context(ai_json, user_input)
+        country_code = None
 
-        html = render_html("valuation_template.html", context)
-        pdf_path = await generate_pdf_from_html(html)
-        
-        logger.info(f"PDF generated at path={pdf_path}")
+        if hasattr(current_user, "country") and current_user.country:
+            country_code = current_user.country.country_code
 
-        send_pdf_email(
-            to_email=user_input["email"],
-            subject="Your Desktop Valuation Report",
-            message=(
-                f"Dear {user_input['full_name']},\n\n"
-                "Please find attached your valuation report.\n\nRegards,\nEvenMore"
-            ),
-            pdf_path=pdf_path
-        )
-        logger.info(f"Valuation PDF emailed to {user_input['email']}")
-
-        valuation_id = context["property_identification"]["valuation_id"]
-
-        record_id = save_valuation_report(
-            db,
-            {
-                "valuation_id": valuation_id,
-                "user_id": current_user.id,
-                "subscription_id": subscription.id,  
-                "category": category,
-                "country_code": current_user.country.country_code,
-                "user_fields": user_input,
-                "ai_response": ai_json,
-                "report_context": context,
-                "pdf_path": pdf_path,
-            }
-        )
-        
-        logger.info(
-            f"Valuation saved valuation_id={valuation_id} "
-            f"user_id={current_user.id}"
+        if not country_code:
+            country_code = request.state.ip_country
+                
+        job = ValuationJob(
+            id=str(uuid.uuid4()),
+            user_id=current_user.id,
+            subscription_id=subscription.id,
+            category=category,
+            request_payload=user_input,
+            country_code=country_code,
         )
 
-        increment_usage(db, subscription)
+        db.add(job)
+        db.commit()
+
+        process_valuation_job.delay(job.id)
 
         return {
-            "status": "success",
-            "valuation_id": valuation_id,
-            "db_record_id": record_id,
-            "subscription_used": subscription.id,
-            "pdf_path": pdf_path
+            "job_id": job.id,
+            "status": "queued",
+            "message": "Valuation job queued successfully"
         }
+
+
+    #     ai_json = generate_valuation_report(user_input)
+        
+    #     context = build_report_context(ai_json, user_input)
+
+    #     html = render_html("valuation_template.html", context)
+    #     pdf_path = await generate_pdf_from_html(html)
+        
+    #     logger.info(f"PDF generated at path={pdf_path}")
+
+    #     send_pdf_email(
+    #         to_email=user_input["email"],
+    #         subject="Your Desktop Valuation Report",
+    #         message=(
+    #             f"Dear {user_input['full_name']},\n\n"
+    #             "Please find attached your valuation report.\n\nRegards,\nEvenMore"
+    #         ),
+    #         pdf_path=pdf_path
+    #     )
+    #     logger.info(f"Valuation PDF emailed to {user_input['email']}")
+
+    #     valuation_id = context["property_identification"]["valuation_id"]
+
+    #     record_id = save_valuation_report(
+    #         db,
+    #         {
+    #             "valuation_id": valuation_id,
+    #             "user_id": current_user.id,
+    #             "subscription_id": subscription.id,  
+    #             "category": category,
+    #             "country_code": current_user.country.country_code,
+    #             "user_fields": user_input,
+    #             "ai_response": ai_json,
+    #             "report_context": context,
+    #             "pdf_path": pdf_path,
+    #         }
+    #     )
+        
+    #     logger.info(
+    #         f"Valuation saved valuation_id={valuation_id} "
+    #         f"user_id={current_user.id}"
+    #     )
+
+    #     increment_usage(db, subscription)
+
+    #     return {
+    #         "status": "success",
+    #         "valuation_id": valuation_id,
+    #         "db_record_id": record_id,
+    #         "subscription_used": subscription.id,
+    #         "pdf_path": pdf_path
+    #     }
         
     except Exception:
         logger.exception("Valuation creation failed")
@@ -323,3 +248,25 @@ def download_valuation_pdf(
         media_type="application/pdf",
         filename=f"{valuation.valuation_id}.pdf",
     )
+
+
+@router.get("/jobs/{job_id}")
+def get_job_status(
+    job_id: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    job = db.query(ValuationJob).filter(
+        ValuationJob.id == job_id,
+        ValuationJob.user_id == current_user.id,
+    ).first()
+
+    if not job:
+        raise HTTPException(404, "Job not found")
+
+    return {
+        "job_id": job.id,
+        "status": job.status,
+        "valuation_id": job.valuation_id,
+        "error": job.error_message,
+    }

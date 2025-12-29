@@ -85,7 +85,6 @@ class ResetPassword(BaseModel):
     confirm_password: str
     
     
-    
 class AdminLogin(BaseModel):
     email: EmailStr
     password: str

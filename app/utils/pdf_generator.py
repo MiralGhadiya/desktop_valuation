@@ -60,6 +60,7 @@ def _generate_pdf_sync(html_content: str) -> str:
         raise
 
 
-async def generate_pdf_from_html(html_content: str) -> str:
+def generate_pdf_from_html(html_content: str) -> str:
     logger.debug("Offloading PDF generation to background thread")
-    return await asyncio.to_thread(_generate_pdf_sync, html_content)
+    return _generate_pdf_sync(html_content)
+    # return await asyncio.to_thread(_generate_pdf_sync, html_content)

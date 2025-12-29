@@ -24,17 +24,21 @@ logger.debug("OpenAI client initialized")
 
 def generate_valuation_report(form_data: dict):
     logger.info("Starting OpenAI valuation report generation")
+    
 
     prompt = f"""
             You are an automated real estate valuation engine.
 
             Goal:
-            Estimate the current fair accurate market value of the property using local comparables, and if buildup area not given then
-            calculate it according to standard construction norms and add valuation of both construction and land. 
-            Provide a bank lending model with recommended LTV based on
-            property attributes, age, micro-location demand, and lending risk assumptions.
-            caclculate growth forecast correctly based on local market trends.
-
+            - Estimate current fair market value using recent local comparable sales.
+            - If built-up area is not provided, calculate it using standard construction norms and value land and construction separately.
+            - Apply depreciation based on property age, condition, and construction quality.
+            - Reconcile cost-based valuation with market comparables and clearly state assumptions.
+            - Recommend bank lending LTV based on property attributes, age, micro-location demand, and lending risk.
+            - Classify lending risk as Low, Moderate, or High with justification.
+            - Provide year-wise growth forecast based on local market trends without uniform annual growth rates.
+            - Present outputs clearly with consistent calculations and professional valuation standards.
+            
             Rules:
             - Return ONLY valid JSON
             - No text outside JSON
@@ -96,7 +100,7 @@ def generate_valuation_report(form_data: dict):
             model="gpt-5.2",
             messages=[{"role": "user", "content": prompt}],
             response_format={"type": "json_object"},
-            temperature=0.1,
+            temperature=0.3,
         )
 
         content = response.choices[0].message.content

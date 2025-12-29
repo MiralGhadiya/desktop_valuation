@@ -40,7 +40,7 @@ class UserSubscription(Base):
     razorpay_order_id = Column(String, nullable=True)
     razorpay_payment_id = Column(String, nullable=True)
     razorpay_signature = Column(String, nullable=True)
-    payment_status = Column(String, default="CREATED")  # CREATED | PENDING | PAID | FAILED | REFUNDED
+    payment_status = Column(String, default="CREATED")  
     
     start_date = Column(DateTime, nullable=True)
     end_date = Column(DateTime, nullable=True)

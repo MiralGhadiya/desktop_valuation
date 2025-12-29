@@ -11,6 +11,8 @@ from app.routes.admin import (
     dashboard,
 )
 
+import app.celery_app
+
 from app.middleware.ip_country import get_ip_country, get_client_ip
 from fastapi.middleware.cors import CORSMiddleware
 

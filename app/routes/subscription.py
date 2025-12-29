@@ -95,7 +95,6 @@ def subscription_history(
     for s in plans:
         end_date = s.end_date
 
-        # ✅ normalize DB datetime
         if end_date and end_date.tzinfo is None:
             end_date = end_date.replace(tzinfo=timezone.utc)
 
@@ -180,7 +179,6 @@ def get_subscription_usage(
 
     now = datetime.now(timezone.utc)
 
-    # 🔑 FIX: normalize DB datetime
     end_date = subscription.end_date
     if end_date.tzinfo is None:
         end_date = end_date.replace(tzinfo=timezone.utc)
