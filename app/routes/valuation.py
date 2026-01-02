@@ -56,15 +56,43 @@ async def create_valuation_form(
         logger.debug(f"Raw category type={raw_type}")
 
         CATEGORY_ALIASES = {
-            "commercial": "commercial",
-            "industrial unit": "industrial unit",
-            "commercial office": "commercial",
-            "commercial shop": "commercial",
+            # Residential
             "residential": "residential",
             "residential flat": "residential",
+            "residential apartment": "residential",
+            "flat": "residential",
+            "apartment": "residential",
             "residential house": "residential",
+            "independent house": "residential",
+            "villa": "residential",
+
+            # Commercial
+            "commercial": "commercial",
+            "commercial shop": "commercial",
+            "shop": "commercial",
+            "retail shop": "commercial",
+            "commercial office": "commercial",
+            "office": "commercial",
+            "showroom": "commercial",
+
+            # Industrial
+            "industrial unit": "industrial unit",
+            "factory": "industrial unit",
+            "warehouse": "industrial unit",
+            "industrial shed": "industrial unit",
+            "logistics park": "industrial unit",
+
+            # Land (non-residential)
             "land": "land",
             "plot": "land",
+            "commercial plot": "land",
+            "industrial plot": "land",
+            "vacant land": "land",
+
+            # Residential Plot (explicit, preserved case)
+            "residential plot": "RESIDENTIAL PLOT",
+            "res plot": "RESIDENTIAL PLOT",
+            "housing plot": "RESIDENTIAL PLOT"
         }
 
         category = CATEGORY_ALIASES.get(raw_type)
@@ -104,6 +132,23 @@ async def create_valuation_form(
 
         db.add(job)
         db.commit()
+        
+        existing = (
+            db.query(ValuationJob)
+            .filter(
+                ValuationJob.user_id == current_user.id,
+                ValuationJob.status.in_(["queued", "processing"]),
+            )
+            .first()
+        )
+
+        if existing:
+            return {
+                "job_id": existing.id,
+                "status": "already queued",
+                "message": "A valuation is already in progress",
+            }
+
 
         process_valuation_job.delay(job.id)
 

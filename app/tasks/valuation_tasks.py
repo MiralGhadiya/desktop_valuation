@@ -31,15 +31,16 @@ def process_valuation_job(self, job_id: str):
 
         user_input = job.request_payload
 
-        # 1️⃣ LLM
         ai_json = generate_valuation_report(user_input)
+        
+        print("AI JSON RESPONSE:", ai_json) 
+        
+        print("FORECAST FROM AI:", ai_json.get("forecast"))
 
-        # 2️⃣ PDF
         context = build_report_context(ai_json, user_input)
         html = render_html("valuation_template.html", context)
         pdf_path = generate_pdf_from_html(html)
 
-        # 3️⃣ Email
         send_pdf_email(
             to_email=user_input["email"],
             subject="Your Desktop Valuation Report",
@@ -47,7 +48,6 @@ def process_valuation_job(self, job_id: str):
             pdf_path=pdf_path,
         )
 
-        # 4️⃣ Save report
         valuation_id = context["property_identification"]["valuation_id"]
         save_valuation_report(
             db,

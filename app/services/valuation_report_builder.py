@@ -35,6 +35,24 @@ def build_report_context(ai_json, user_input):
         "last_sale_price": "N/A",
         "customer_estimate": user_input.get("estimated_market_value", "N/A")
     }
+    
+    # property_summary = {
+    #     "property_type": ai_json["property_details"]["property_type"],
+    #     "land_area": f"{user_input.get('land_area_sqft', 'N/A')} sqft",
+    #     "built_up_area": f"{user_input.get('built_up_area_sqft', 'N/A')} sqft",
+    #     "zoning": user_input.get("zoning", "N/A"),
+    #     "title_details": "Not Available",
+    #     "construction_year": f"{user_input.get('age_years', 'N/A')} years old",
+    #     "structure": "RCC Construction",
+    #     "car_parking": "Available",
+    #     "ownership_type": user_input.get("ownership_type", "Freehold"),
+    #     "occupancy": user_input.get("occupancy", "Owner Occupied"),
+    #     "local_authority": user_input.get("city", "N/A"),
+    #     "last_sale_date": "N/A",
+    #     "last_sale_price": "N/A",
+    #     "customer_estimate": user_input.get("estimated_market_value", "N/A")
+    # }
+
 
     # -------- COMPARABLE SALES --------
     comparable_sales = []
@@ -85,17 +103,41 @@ def build_report_context(ai_json, user_input):
     }
 
     # -------- FORECAST (5 years) --------
-    growth = ai_json["forecast"]["growth_rate_percent"] / 100
-    base = ai_json["predicted_value"]["fair_market_value"]
-    value_forecast = []
+    # growth = ai_json["forecast"]["growth_rate_percent"] / 100
+    # base = ai_json["predicted_value"]["fair_market_value"]
+    # value_forecast = []
 
-    for i in range(1, 6):
-        projected = int(base * ((1 + growth) ** i))
+    # for i in range(1, 6):
+    #     projected = int(base * ((1 + growth) ** i))
+    #     value_forecast.append({
+    #         "year": datetime.now().year + i,
+    #         "growth_rate": f"{ai_json['forecast']['growth_rate_percent']}%",
+    #         "forecast_value": projected
+    #     })
+    
+    base = ai_json["predicted_value"]["fair_market_value"]
+    forecast = ai_json["forecast"]
+
+    growth_rates = [
+        forecast["year_1_growth_percent"],
+        forecast["year_2_growth_percent"],
+        forecast["year_3_growth_percent"],
+        forecast["year_4_growth_percent"],
+        forecast["year_5_growth_percent"],
+    ]
+
+    value_forecast = []
+    current_value = base
+    current_year = datetime.now().year
+
+    for i, rate in enumerate(growth_rates, start=1):
+        current_value = int(current_value * (1 + rate / 100))
         value_forecast.append({
-            "year": datetime.now().year + i,
-            "growth_rate": f"{ai_json['forecast']['growth_rate_percent']}%",
-            "forecast_value": projected
+            "year": current_year + i,
+            "growth_rate": f"{rate}%",
+            "forecast_value": current_value
         })
+
 
     return {
         "property_identification": property_identification,
