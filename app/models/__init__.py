@@ -7,4 +7,6 @@ from app.models.auth import (
     PasswordResetToken,
 )
 from .subscription import SubscriptionPlan, UserSubscription
+from app.models.exchange_rate import ExchangeRate
+
 

@@ -5,11 +5,8 @@ import json
 from openai import OpenAI
 from dotenv import load_dotenv
 from langsmith import traceable
+from openai import OpenAIError
 from app.utils.logger_config import app_logger as logger
-
-# --------------------------------------------------
-# Init
-# --------------------------------------------------
 
 load_dotenv()
 
@@ -21,63 +18,25 @@ if not OPENAI_API_KEY:
 client = OpenAI(api_key=OPENAI_API_KEY)
 logger.info("OpenAI client initialized successfully")
 
-# --------------------------------------------------
-# Base Prompt (Always Included)
-# --------------------------------------------------
-
 BASE_PROMPT = """
-          You are an automated real estate valuation engine.
+          Role: Certified real estate valuation engine.
 
-          Global Rules:
-          - Return ONLY valid JSON
-          - No text outside JSON
-          - No markdown
-          - Numbers only (no commas or symbols)
+          Global Constraints:
+          - Output ONLY valid JSON
+          - No markdown, no explanations
+          - Numbers only (no commas)
           - Infer missing data logically
-          - Maintain internal calculation consistency
-          -If built-up area is missing, estimate using standard norms
-          
-          Three-Tier Valuation Rule:
+          - Maintain internal consistency
 
-          - low_value, mid_value, and high_value MUST be derived from DIFFERENT assumptions.
-          - Do NOT calculate tiers using simple percentage adjustments from one base value.
-          - Each tier must represent a distinct market scenario:
-              - low_value = conservative / forced-sale / weak demand scenario
-              - mid_value = fair market equilibrium scenario
-              - high_value = optimistic / premium buyer / strong demand scenario
-          
-          Three-Tier & Adjustment Enforcement:
+          Valuation Contract:
+          - Produce three independent values: low, mid, high
+          - Each tier MUST use different assumptions
+          - Apply directional adjustments (superior ↑, inferior ↓)
+          - Enforce meaningful spread between tiers
 
-          - low_value, mid_value, and high_value MUST be reasoned independently.
-          - Do NOT derive tiers by applying percentages to a single base value.
-
-          Comparable vs Subject Rule:
-          - Average Comparable Value = market baseline only.
-          - Adjusted Subject Estimate MUST reflect subject-specific differences and
-            MUST NOT equal the comparable average unless the subject is identical.
-
-          Directional Adjustments:
-          - Superior subject attributes → adjusted value MUST increase.
-          - Inferior subject attributes → adjusted value MUST decrease.
-          - Zero-net adjustments are NOT allowed.
-
-          Separation Rule:
-          - low, mid, and high values must show meaningful spread.
-          - If values converge, assumptions must be re-evaluated and separated.
-          
-          IMPORTANT:
-            Three-tier values must NOT be scaled versions of each other.
-            Each tier must be reasoned independently with different assumptions,
-            different comparable weighting, and different premium/depreciation logic.
-            Flat or near-identical tier outputs indicate incorrect reasoning and must be corrected.
-
-          Core Objectives:
-          - Estimate fair market value using appropriate valuation methods
-          - Reconcile market and cost approaches logically
-          - Recommend bank lending LTV with risk classification
-          - Provide 5-year growth forecast using non-uniform rates
-
-          Output must EXACTLY match the provided JSON schema.
+          Compliance:
+          - Market approach dominates
+          - Lending model must be conservative and defensible
         """
 
 PROPERTY_PROMPTS = {
@@ -87,13 +46,15 @@ PROPERTY_PROMPTS = {
 
             Valuation Method:
             - Market comparable value is PRIMARY
-            - Cost-based construction valuation is NOT applicable
+            - Value land and buildup both is buildup area is given but focus on land value
             - Value land using nearby recent plot sale rates per sqft
 
             Adjustments:
             - Apply corner, road-facing, and size premiums
             - Apply demand premium in high-growth residential zones
+            - Apply negative adjustments for irregular shape or poor access or outdated zoning or outside approved residential areas
             - Do NOT apply depreciation on land
+            - Apply depreciation on buildup area
 
             Reconciliation:
             - Final value must not be lower than strong comparable-derived value
@@ -127,16 +88,17 @@ PROPERTY_PROMPTS = {
             Valuation Method:
             - Market comparable value is PRIMARY
             - Cost-based construction valuation is SECONDARY and supportive
-            - Land value must be apportioned based on undivided share (UDS)
+            - Land value must be apportioned based on undivided share
 
             Depreciation:
             - Apply depreciation on construction component only
             - Cap depreciation at:
                 - 10% if age < 10 years
                 - 20% if age between 10 and 20 years
-
+                - 30% if age > 20 years
+                - 40% if age > 30 years
+                
             Constraints:
-            - Do NOT allow depreciation to pull value below comparable apartment prices
             - Prefer same-building or same-society comparables
 
             Premiums:
@@ -153,6 +115,7 @@ PROPERTY_PROMPTS = {
             - Market comparables are DOMINANT
             - Ignore residential construction norms
             - Ground-floor retail premium applies
+            - If propery is too small or old then apply decriciation accordingly on construction
 
             Depreciation:
             - Cap depreciation at 10% if age < 15 years
@@ -163,7 +126,8 @@ PROPERTY_PROMPTS = {
         """,
 
     "industrial unit": """
-        Property Rules: Industrial Unit
+    
+        Property Rules: Industrial Unit   
 
         Valuation Method:
         - Market comparables dominate where available
@@ -173,62 +137,95 @@ PROPERTY_PROMPTS = {
 
         Depreciation:
         - Cap depreciation at 15% if age < 20 years
+        - Apply higher depreciation for specialized facilities
 
         Constraints:
         - Cost-based value cannot undercut market-derived value
         - Consider logistics access, zoning, and warehouse demand
-    """
+      """
 }
 
 
-JSON_SCHEMA = """
+CORE_JSON_SCHEMA = """
         {
-          "property_details": {
-            "address": "",
-            "city": "",
-            "country": "",
-            "property_type": "",
-            "land_area_sqft": 0,
-            "built_up_area_sqft": 0,
-            "age_years": 0
+          "property_details":{
+            "address":"","city":"","country":"","property_type":"",
+            "land_area_sqft":0,"built_up_area_sqft":0,"age_years":0,"zoning":""
           },
-          "predicted_value": {
-            "low_value": 0,
-            "mid_value": 0,
-            "high_value": 0,
-            "fair_market_value": 0,
-            "confidence_score": 0
+          "predicted_value":{
+            "low_value":0,"mid_value":0,"high_value":0,
+            "fair_market_value":0,"confidence_score":0
           },
-          "bank_lending_model": {
-            "recommended_ltv": 0,
-            "safe_lending_value": 0,
-            "risk_level": "",
-            "reason": ""
+          "bank_lending_model":{
+            "recommended_ltv":0,"safe_lending_value":0,
+            "risk_level":"","reason":""
           },
-          "buy_sell_recommendation": {
-            "buyer_recommendation": "",
-            "seller_recommendation": "",
-            "reasoning": ""
+          "buy_sell_recommendation":{
+            "buyer_recommendation":"",
+            "seller_recommendation":"",
+            "reasoning":""
           },
-          "comparables_used": [
-            {
-              "address": "",
-              "land_area": "",
-              "sale_price": 0,
-              "distance_km": 0,
-              "adjustment_reason": ""
-            }
-          ],
-          "forecast": {
-            "year_1_growth_percent": 0,
-            "year_2_growth_percent": 0,
-            "year_3_growth_percent": 0,
-            "year_4_growth_percent": 0,
-            "year_5_growth_percent": 0,
-            "value_in_12_months": 0
-          }
+          "comparables_used":[{
+            "address":"","land_area":"",
+            "sale_price":0,"distance_km":0,
+            "adjustment_reason":""
+          }]
         }
       """
+
+
+FORECAST_SCHEMA = """
+        {
+          "year_1_growth_percent": 0,
+          "year_2_growth_percent": 0,
+          "year_3_growth_percent": 0,
+          "year_4_growth_percent": 0,
+          "year_5_growth_percent": 0,
+          "value_in_12_months": 0
+        }
+      """
+
+
+
+@traceable(name="generate_forecast", run_type="llm")
+def generate_forecast(core_output: dict):
+    prompt = f"""
+        You are a real estate market forecasting engine.
+
+        Rules:
+        - Return ONLY valid JSON
+        - No markdown
+        - Numbers only
+        - Growth rates must vary year-to-year
+        - Base forecast on market maturity and property type
+
+        Input:
+        {{
+          "fair_market_value": {core_output["predicted_value"]["fair_market_value"]},
+          "property_type": "{core_output["property_details"]["property_type"]}",
+          "city": "{core_output["property_details"]["city"]}",
+          "confidence_score": {core_output["predicted_value"]["confidence_score"]}
+        }}
+
+        Return exactly this JSON:
+        {{
+          "year_1_growth_percent": 0,
+          "year_2_growth_percent": 0,
+          "year_3_growth_percent": 0,
+          "year_4_growth_percent": 0,
+          "year_5_growth_percent": 0,
+          "value_in_12_months": 0
+        }}
+      """
+
+    response = client.chat.completions.create(
+        model="gpt-5.2",
+        messages=[{"role": "user", "content": prompt}],
+        temperature=0.2,
+        response_format={"type": "json_object"},
+    )
+
+    return json.loads(response.choices[0].message.content)
 
 
 @traceable(name="openai_chat_completion", run_type="llm")
@@ -240,9 +237,6 @@ def _call_openai(final_prompt: str):
         temperature=0.2,
     )
 
-# --------------------------------------------------
-# Main Valuation Function (Traced)
-# --------------------------------------------------
 
 @traceable(name="generate_valuation_report", run_type="chain")
 def generate_valuation_report(form_data: dict):
@@ -255,25 +249,24 @@ def generate_valuation_report(form_data: dict):
         raise ValueError("Invalid or unsupported property_type")
 
     final_prompt = f"""
-{BASE_PROMPT}
+          {BASE_PROMPT}
 
-{PROPERTY_PROMPTS[property_type]}
+          {PROPERTY_PROMPTS[property_type]}
 
-Input:
-{json.dumps(form_data)}
+          Input:
+              # {json.dumps(form_data)}
+              {json.dumps(form_data, separators=(",", ":"))}
 
-Return exactly this JSON structure:
-{JSON_SCHEMA}
-"""
+              Return exactly this JSON structure:
+              {CORE_JSON_SCHEMA}
+          """
 
     logger.debug("Final prompt constructed")
 
     try:
         response = _call_openai(final_prompt)
-
         content = response.choices[0].message.content
         parsed = json.loads(content)
-
         logger.info("Valuation report generated successfully")
         return parsed
 
@@ -281,6 +274,10 @@ Return exactly this JSON structure:
         logger.error("Invalid JSON returned by OpenAI")
         logger.debug(content)
         raise ValueError("AI returned invalid JSON")
+
+    except OpenAIError as e:
+        logger.exception("OpenAI API error")
+        raise RuntimeError("AI service unavailable") from e
 
     except Exception:
         logger.exception("Valuation generation failed")

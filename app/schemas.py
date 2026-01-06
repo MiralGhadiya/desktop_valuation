@@ -25,7 +25,7 @@ class UserResponse(UserBase):
         from_attributes = True
 
 
-class UserBase(BaseModel):
+class UserBaseMinimal(BaseModel):
     email: EmailStr | None = None
     username: str
     mobile_number: str

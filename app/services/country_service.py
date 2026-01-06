@@ -24,7 +24,13 @@ def create_country(db: Session, name: str, dial_code: str, country_code: str):
         dial_code=dial_code,
         country_code=country_code,
     )
-    db.add(country)
-    db.commit()
-    db.refresh(country)
+    try:
+        db.add(country)
+        db.commit()
+        db.refresh(country)
+    except Exception:
+        db.rollback()
+        logger.exception("Failed to create country")
+        raise
+
     return country

@@ -133,8 +133,13 @@ def delete_valuation(
         logger.warning(f"Valuation not found during delete valuation_id={valuation_id}")
         raise HTTPException(404, "Valuation not found")
 
-    db.delete(valuation)
-    db.commit()
+    try:
+        db.delete(valuation)
+        db.commit()
+    except Exception:
+        db.rollback()
+        logger.exception(f"Failed to delete valuation valuation_id={valuation_id}")
+        raise HTTPException(500, "Deletion failed")
     
     logger.info(f"Valuation deleted valuation_id={valuation_id}")
 

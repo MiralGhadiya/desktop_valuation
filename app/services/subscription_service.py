@@ -80,46 +80,55 @@ def enforce_subscription(
 
 
 def increment_usage(db: Session, subscription: UserSubscription):
-    subscription.reports_used += 1
-    db.commit()
-    logger.info(
-        f"Subscription usage incremented "
-        f"subscription_id={subscription.id} "
-        f"reports_used={subscription.reports_used}"
-    )
-    
+    try:
+        subscription.reports_used += 1
+        db.commit()
+        logger.info(
+            f"Subscription usage incremented "
+            f"subscription_id={subscription.id} "
+            f"reports_used={subscription.reports_used}"
+        )
+    except Exception:
+        db.rollback()
+        logger.exception("Failed to increment subscription usage")
+        raise
+
     
 def expire_subscriptions(db: Session) -> int:
     """
     Deactivate expired subscriptions.
     Returns number of expired subscriptions.
     """
-    
-    print("working........")
+    try:
+        print("working........")
 
-    now = datetime.utcnow()
+        now = datetime.utcnow()
 
-    subs = (
-        db.query(UserSubscription)
-        .filter(
-            UserSubscription.is_expired == False,
-            UserSubscription.end_date < now,
+        subs = (
+            db.query(UserSubscription)
+            .filter(
+                UserSubscription.is_expired == False,
+                UserSubscription.end_date < now,
+            )
+            .all()
         )
-        .all()
-    )
 
-    count = 0
-    for sub in subs:
-        sub.is_expired = True
-        count += 1
+        count = 0
+        for sub in subs:
+            sub.is_expired = True
+            count += 1
 
-    if count:
-        db.commit()
-        logger.info(f"Expired {count} subscriptions")
-    else:
-        logger.info("No subscriptions to expire")
-
-    return count
+        if count:
+            db.commit()
+            logger.info(f"Expired {count} subscriptions")
+        else:
+            logger.info("No subscriptions to expire")
+        return count
+    
+    except Exception:
+        db.rollback()
+        logger.exception("Expire subscription job failed")
+        return 0
 
 
 def send_expiry_reminders(db: Session):

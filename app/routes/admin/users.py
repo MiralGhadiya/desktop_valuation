@@ -98,8 +98,13 @@ def toggle_user_active(
         logger.warning(f"{USER_NOT_FOUND} during toggle user_id={user_id}")
         raise HTTPException(404, USER_NOT_FOUND)
 
-    user.is_active = not user.is_active
-    db.commit()
+    try:
+        user.is_active = not user.is_active
+        db.commit()
+    except Exception:
+        db.rollback()
+        logger.exception("Failed to toggle user active state")
+        raise HTTPException(500, "Update failed")
 
     if not user.is_active:
         logger.info(f"User deactivated and sessions revoked user_id={user.id}")
@@ -183,9 +188,14 @@ def admin_reset_password(
     if not user:
         logger.warning(f"{USER_NOT_FOUND} during password reset user_id={user_id}")
         raise HTTPException(404, USER_NOT_FOUND)
-
-    user.hashed_password = hash_password(data.new_password)
-    db.commit()
+    
+    try:
+        user.hashed_password = hash_password(data.new_password)
+        db.commit()
+    except Exception:
+        db.rollback()
+        logger.exception("Failed to reset user password")
+        raise HTTPException(500, "Password reset failed")
 
     auth_service.revoke_all_refresh_tokens(db, user.id)
     

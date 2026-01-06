@@ -129,28 +129,37 @@ async def create_valuation_form(
             request_payload=user_input,
             country_code=country_code,
         )
+        try:
+            db.add(job)
+            db.commit()
 
-        db.add(job)
-        db.commit()
+            process_valuation_job.delay(job.id)
+
+        except Exception:
+            db.rollback()
+            job.status = "failed"
+            job.error_message = "Queue unavailable"
+            db.add(job)
+            db.commit()
+            raise HTTPException(503, "Valuation service unavailable")
         
-        existing = (
-            db.query(ValuationJob)
-            .filter(
-                ValuationJob.user_id == current_user.id,
-                ValuationJob.status.in_(["queued", "processing"]),
-            )
-            .first()
-        )
+        # existing = (
+        #     db.query(ValuationJob)
+        #     .filter(
+        #         ValuationJob.user_id == current_user.id,
+        #         ValuationJob.status.in_(["queued", "processing"]),
+        #     )
+        #     .first()
+        # )
 
-        if existing:
-            return {
-                "job_id": existing.id,
-                "status": "already queued",
-                "message": "A valuation is already in progress",
-            }
+        # if existing:
+        #     return {
+        #         "job_id": existing.id,
+        #         "status": "already queued",
+        #         "message": "A valuation is already in progress",
+        #     }
 
-
-        process_valuation_job.delay(job.id)
+        # process_valuation_job.delay(job.id)
 
         return {
             "job_id": job.id,
@@ -288,12 +297,16 @@ def download_valuation_pdf(
     if not valuation.pdf_path or not os.path.exists(valuation.pdf_path):
         raise HTTPException(404, "PDF not available")
 
-    return FileResponse(
-        valuation.pdf_path,
-        media_type="application/pdf",
-        filename=f"{valuation.valuation_id}.pdf",
-    )
-
+    try:
+        return FileResponse(
+            valuation.pdf_path,
+            media_type="application/pdf",
+            filename=f"{valuation.valuation_id}.pdf",
+        )
+    except Exception:
+        logger.exception("Error sending PDF file")
+        raise HTTPException(500, "Error downloading PDF")
+    
 
 @router.get("/jobs/{job_id}")
 def get_job_status(

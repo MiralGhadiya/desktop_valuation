@@ -6,7 +6,7 @@ from app.models.valuation import ValuationJob
 from app.services.valuation_service import save_valuation_report
 from app.services.subscription_service import increment_usage
 from app.services.valuation_report_builder import build_report_context
-from app.llm.openai import generate_valuation_report
+from app.llm.openai import generate_valuation_report, generate_forecast
 from app.utils.pdf_generator import render_html, generate_pdf_from_html
 from app.utils.email import send_pdf_email
 from app.models.subscription import UserSubscription
@@ -31,7 +31,14 @@ def process_valuation_job(self, job_id: str):
 
         user_input = job.request_payload
 
-        ai_json = generate_valuation_report(user_input)
+        # ai_json = generate_valuation_report(user_input)
+        
+        core = generate_valuation_report(user_input)
+        forecast = generate_forecast(core)
+
+        core["forecast"] = forecast
+        ai_json = core
+
         
         print("AI JSON RESPONSE:", ai_json) 
         
@@ -63,8 +70,7 @@ def process_valuation_job(self, job_id: str):
                 "pdf_path": pdf_path,
             },
         )
-
-        # increment_usage(db, job.subscription_id)
+        
         subscription = (
             db.query(UserSubscription)
             .filter(UserSubscription.id == job.subscription_id)

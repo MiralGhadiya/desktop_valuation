@@ -1,3 +1,5 @@
+# app/routes/payment.py
+
 import os
 import razorpay
 from dotenv import load_dotenv
@@ -8,6 +10,8 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 
 from app.deps import get_db, get_current_user
 from app.models import SubscriptionPlan, UserSubscription, User
+from app.services.exchange_rate_service import get_rate
+
 
 from app.utils.logger_config import app_logger as logger
 
@@ -43,12 +47,14 @@ def _expire_existing_active_subs(db: Session, user_id: int, now: datetime):
 
 
 @router.post("/create-order/{plan_id}")
+
 def create_order(
     plan_id: int,
     request: Request,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
+    
     plan = db.query(SubscriptionPlan).filter(
         SubscriptionPlan.id == plan_id,
         SubscriptionPlan.is_active == True
@@ -56,10 +62,22 @@ def create_order(
 
     if not plan:
         raise HTTPException(404, "Plan not found")
-
+    
     pricing_country = _pricing_country(request, current_user)
-    if pricing_country != plan.country_code:
-        raise HTTPException(403, "Plan pricing country mismatch")
+
+    if plan.country_code == "DEFAULT":
+        user_currency = current_user.country.currency_code
+        rate = get_rate(db, user_currency)
+
+        if not rate:
+            raise HTTPException(400, "Currency not supported")
+
+        amount = int(plan.price * rate * 100)
+        currency = user_currency
+
+    else:
+        amount = int(plan.price * 100)
+        currency = plan.currency
 
     existing_pending = db.query(UserSubscription).filter(
         UserSubscription.user_id == current_user.id,
@@ -68,53 +86,69 @@ def create_order(
         UserSubscription.is_active == False
     ).order_by(UserSubscription.id.desc()).first()
 
-    if existing_pending and existing_pending.razorpay_order_id:
+    if existing_pending:
+        logger.info(
+            f"[PAYMENT] Removing stale pending order "
+            f"sub_id={existing_pending.id} "
+            f"order_id={existing_pending.razorpay_order_id}"
+        )
+        try:
+            db.delete(existing_pending)
+            db.commit()
+        except Exception:
+            db.rollback()
+            logger.exception("Failed to delete existing pending subscription")
+            raise
+
+
+    # if existing_pending and existing_pending.razorpay_order_id:
+    #     return {
+    #         "order_id": existing_pending.razorpay_order_id,
+    #         "razorpay_key": RAZORPAY_KEY_ID,
+    #         "amount": amount,
+    #         "currency": currency,
+    #         # "amount": plan.price * 100,
+    #         # "currency": plan.currency,
+    #         "subscription_id": existing_pending.id
+    #     }
+
+    try:
+        order = client.order.create({
+            "amount": amount,
+            "currency": currency,
+            "payment_capture": 1,
+        })
+
+        sub = UserSubscription(
+            user_id=current_user.id,
+            plan_id=plan.id,
+            pricing_country_code=pricing_country,
+            ip_country_code=getattr(request.state, "ip_country", None),
+            payment_country_code=pricing_country,
+            razorpay_order_id=order["id"],
+            payment_status="PENDING",
+            is_active=False,
+            is_expired=False,
+            start_date=None,
+            end_date=None,
+        )
+
+        db.add(sub)
+        db.commit()
+        db.refresh(sub)
+
         return {
-            "order_id": existing_pending.razorpay_order_id,
+            "order_id": order["id"],
             "razorpay_key": RAZORPAY_KEY_ID,
-            "amount": plan.price * 100,
-            "currency": plan.currency,
-            "subscription_id": existing_pending.id
+            "amount": amount,
+            # "currency": plan.currency,
+            "currency": currency,
+            "subscription_id": sub.id
         }
-
-    amount = plan.price * 100  # paise
-
-    order = client.order.create({
-        "amount": amount,
-        "currency": plan.currency,
-        "payment_capture": 1,
-        "notes": {
-            "user_id": str(current_user.id),
-            "plan_id": str(plan.id),
-            "pricing_country": pricing_country
-        }
-    })
-
-    sub = UserSubscription(
-        user_id=current_user.id,
-        plan_id=plan.id,
-        pricing_country_code=pricing_country,
-        ip_country_code=getattr(request.state, "ip_country", None),
-        payment_country_code=pricing_country,
-        razorpay_order_id=order["id"],
-        payment_status="PENDING",
-        is_active=False,
-        is_expired=False,
-        start_date=None,
-        end_date=None,
-    )
-
-    db.add(sub)
-    db.commit()
-    db.refresh(sub)
-
-    return {
-        "order_id": order["id"],
-        "razorpay_key": RAZORPAY_KEY_ID,
-        "amount": amount,
-        "currency": plan.currency,
-        "subscription_id": sub.id
-    }
+    except Exception:
+        db.rollback()
+        logger.exception("Payment order creation failed")
+        raise HTTPException(502, "Payment gateway error")
 
 
 @router.post("/verify")
@@ -128,89 +162,48 @@ def verify_payment(
     Still keep webhook for ultimate truth.
     """
     try:
-        client.utility.verify_payment_signature({
-            "razorpay_order_id": data["razorpay_order_id"],
-            "razorpay_payment_id": data["razorpay_payment_id"],
-            "razorpay_signature": data["razorpay_signature"],
-        })
-    except SignatureVerificationError:
-        raise HTTPException(400, "Payment verification failed")
+        try:
+            client.utility.verify_payment_signature({
+                "razorpay_order_id": data["razorpay_order_id"],
+                "razorpay_payment_id": data["razorpay_payment_id"],
+                "razorpay_signature": data["razorpay_signature"],
+            })
+        except SignatureVerificationError:
+            raise HTTPException(400, "Payment verification failed")
 
-    sub = db.query(UserSubscription).filter(
-        UserSubscription.razorpay_order_id == data["razorpay_order_id"],
-        UserSubscription.user_id == current_user.id
-    ).first()
+        sub = db.query(UserSubscription).filter(
+            UserSubscription.razorpay_order_id == data["razorpay_order_id"],
+            UserSubscription.user_id == current_user.id
+        ).first()
 
-    if not sub:
-        raise HTTPException(404, "Subscription not found")
+        if not sub:
+            raise HTTPException(404, "Subscription not found")
 
-    if sub.payment_status == "PAID" and sub.is_active:
-        return {"message": "Already activated"}
+        if sub.payment_status == "PAID" and sub.is_active:
+            return {"message": "Already activated"}
 
-    now = datetime.now(timezone.utc)
+        now = datetime.now(timezone.utc)
+        
+        try:
+            _expire_existing_active_subs(db, current_user.id, now)
 
-    _expire_existing_active_subs(db, current_user.id, now)
+            sub.razorpay_payment_id = data["razorpay_payment_id"]
+            sub.razorpay_signature = data["razorpay_signature"]
+            sub.payment_status = "PAID"
+            sub.is_active = True
+            sub.is_expired = False
+            sub.start_date = now
+            sub.end_date = now + timedelta(days=30)
 
-    sub.razorpay_payment_id = data["razorpay_payment_id"]
-    sub.razorpay_signature = data["razorpay_signature"]
-    sub.payment_status = "PAID"
-    sub.is_active = True
-    sub.is_expired = False
-    sub.start_date = now
-    sub.end_date = now + timedelta(days=30)
+            db.commit() 
+        except Exception:
+            db.rollback()
+            logger.exception("Failed expiring old subscriptions")
+            raise HTTPException(500, "Payment processing error")
 
-    db.commit() 
-    return {"message": "Payment successful & subscription activated"}
-
-
-# @router.post("/refund/{user_subscription_id}")
-# def refund_payment(
-#     subscription_id: int,
-#     db: Session = Depends(get_db),
-#     current_user: User = Depends(get_current_user),
-# ):
-#     # 1️⃣ Fetch subscription
-#     sub = db.query(UserSubscription).filter(
-#         UserSubscription.id == subscription_id,
-#         UserSubscription.user_id == current_user.id
-#     ).first()
+        return {"message": "Payment successful & subscription activated"}
     
-#     print("sub", sub)
-
-#     if not sub:
-#         raise HTTPException(404, "Subscription not found")
-
-#     # 2️⃣ Validate refund eligibility
-#     if sub.payment_status != "PAID":
-#         raise HTTPException(400, "Only paid subscriptions can be refunded")
-
-#     if not sub.razorpay_payment_id:
-#         raise HTTPException(400, "Payment ID missing")
-
-#     # 3️⃣ Call Razorpay refund API
-#     try:
-#         refund = client.payment.refund(
-#             sub.razorpay_payment_id,
-#             {
-#                 "notes": {
-#                     "reason": "User requested refund"
-#                 }
-#             }
-#         )
-#         print("refund", refund)
-#     except Exception as e:
-#         logger.error(f"Refund failed: {e}")
-#         raise HTTPException(500, "Refund initiation failed")
-
-#     # 4️⃣ Update DB
-#     sub.payment_status = "REFUNDED"
-#     sub.is_active = False
-#     sub.is_expired = True
-#     sub.end_date = datetime.now(timezone.utc)
-
-#     db.commit()
-
-#     return {
-#         "message": "Refund initiated successfully",
-#         "refund_id": refund.get("id"),
-#     }
+    except Exception:
+        db.rollback()
+        logger.exception("Payment verification failed")
+        raise HTTPException(500, "Payment processing error")

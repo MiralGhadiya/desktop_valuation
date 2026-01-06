@@ -44,9 +44,14 @@ def create_user(
         country_id=country_id,
         hashed_password=hash_password(password),
     )
-    db.add(user)
-    db.commit()
-    db.refresh(user)
+    try:
+        db.add(user)
+        db.commit()
+        db.refresh(user)
+    except Exception:
+        db.rollback()
+        logger.exception("Failed to create user")
+        raise
     
     logger.info(f"User created user_id={user.id}")
     return user
@@ -59,5 +64,10 @@ def change_password(db: Session, user: User, old_password: str, new_password: st
         logger.warning(f"Invalid old password user_id={user.id}")
         raise ValueError("Invalid password")
 
-    user.hashed_password = hash_password(new_password)
-    db.commit()
+    try:
+        user.hashed_password = hash_password(new_password)
+        db.commit()
+    except Exception:
+        db.rollback()
+        logger.exception("Failed to change password")
+        raise

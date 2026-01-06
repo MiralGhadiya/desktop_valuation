@@ -30,70 +30,67 @@ templates = Jinja2Templates(directory="app/templates")
 
 @router.post("/register")
 def register(user: schemas.UserCreate, db: Session = Depends(get_db)):
-    
+
     if user.email and user_service.get_user_by_email(db, user.email):
-        raise HTTPException(status_code=400, detail="Email already registered")
+        raise HTTPException(400, "Email already registered")
 
     if user_service.get_user_by_mobile(db, user.mobile_number):
-        raise HTTPException(status_code=400, detail="Mobile number already registered")
+        raise HTTPException(400, "Mobile number already registered")
 
-    dial_code, country_code = get_country_from_mobile(user.mobile_number)
-    
-    logger.info(f"Registration attempt email={user.email} mobile={user.mobile_number}")
+    try:
+        dial_code, country_code = get_country_from_mobile(user.mobile_number)
 
-    country = country_service.get_country_by_dial_code(db, dial_code)
-    if not country:
-        country = country_service.create_country(
-            db, country_code, dial_code, country_code
+        country = country_service.get_country_by_dial_code(db, dial_code)
+        if not country:
+            country = country_service.create_country(
+                db, country_code, dial_code, country_code
+            )
+
+        new_user = user_service.create_user(
+            db,
+            email=user.email,
+            username=user.username,
+            mobile_number=user.mobile_number,
+            password=user.password,
+            country_id=country.id,
         )
 
-    new_user = user_service.create_user(
-        db,
-        email=user.email,
-        username=user.username,
-        mobile_number=user.mobile_number,
-        password=user.password,
-        country_id=country.id,
-    )
-    
-    logger.info(f"User registered successfully id={new_user.id}")
-    
-    free_plan = db.query(SubscriptionPlan).filter(
-        SubscriptionPlan.name == "FREE",
-        SubscriptionPlan.country_code == country.country_code,
-        SubscriptionPlan.is_active == True
-    ).first()
+        free_plan = db.query(SubscriptionPlan).filter(
+            SubscriptionPlan.name == "FREE",
+            SubscriptionPlan.country_code == country.country_code,
+            SubscriptionPlan.is_active == True
+        ).first()
 
-    if free_plan:
-        free_sub = UserSubscription(
+        if free_plan:
+            db.add(UserSubscription(
+                user_id=new_user.id,
+                plan_id=free_plan.id,
+                start_date=datetime.now(timezone.utc),
+                end_date=datetime.now(timezone.utc) + timedelta(days=365),
+                is_active=True
+            ))
+
+        raw_token = secrets.token_urlsafe(48)
+        verification = EmailVerificationToken(
             user_id=new_user.id,
-            plan_id=free_plan.id,
-            start_date=datetime.now(timezone.utc),
-            end_date=datetime.now(timezone.utc) + timedelta(days=365),
-            is_active=True
+            token_hash=pwd_context.hash(raw_token),
+            expires_at=datetime.now(timezone.utc) + timedelta(minutes=30),
         )
-        db.add(free_sub)
+        db.add(verification)
+
         db.commit()
 
+        send_verification_email(
+            new_user.email,
+            f"http://localhost:8000/verify-email?token={raw_token}"
+        )
 
-    raw_token = secrets.token_urlsafe(48)
-    hashed_token = pwd_context.hash(raw_token)
+        return {"message": "Registration successful. Please verify your email."}
 
-    verification = EmailVerificationToken(
-        user_id=new_user.id,
-        token_hash=hashed_token,
-        expires_at=datetime.now(timezone.utc) + timedelta(minutes=30),
-    )
-
-    db.add(verification)
-    db.commit()
-
-    verify_link = f"http://localhost:8000/verify-email?token={raw_token}"
-    send_verification_email(new_user.email, verify_link)
-
-    return {
-        "message": "Registration successful. Please verify your email."
-    }
+    except Exception:
+        db.rollback()
+        logger.exception("Registration failed")
+        raise HTTPException(500, "Registration failed")
 
 
 @router.get("/verify-email")
@@ -117,12 +114,16 @@ def verify_email(token: str, db: Session = Depends(get_db)):
     user = db.query(User).filter(User.id == verification.user_id).first()
     logger.info(f"Email verified for user_id={user.id}")
     
-    user.is_email_verified = True
-    user.email_verified_at = datetime.now(timezone.utc)
-
-    verification.used = True
-    db.commit()
-
+    try:
+        user.is_email_verified = True
+        user.email_verified_at = datetime.now(timezone.utc)
+        verification.used = True
+        db.commit()
+    except Exception:
+        db.rollback()
+        logger.exception("Email verification failed")
+        raise HTTPException(status_code=500, detail="Email verification failed")
+    
     return {"message": "Email verified successfully"}
 
 
@@ -157,9 +158,14 @@ def resend_verification_email(
         token_hash=hashed_token,
         expires_at=datetime.now(timezone.utc) + timedelta(minutes=30),
     )
-
-    db.add(verification)
-    db.commit()
+    
+    try:
+        db.add(verification)
+        db.commit()
+    except Exception:
+        db.rollback()
+        logger.exception("Failed to create email verification token")
+        raise
 
     verify_link = f"http://localhost:8000/verify-email?token={raw_token}"
     send_verification_email(user.email, verify_link)
@@ -173,43 +179,37 @@ def resend_verification_email(
 
 @router.post("/login")
 def login(user: schemas.UserLogin, db: Session = Depends(get_db)):
-    
-    logger.info(f"Login attempt for mail={user.email}")
 
-    db_user = user_service.get_user_by_email(db, user.email)
-    
-    if not db_user:
-        raise HTTPException(401, "Invalid credentials")
-    
-    if not db_user.is_email_verified:
-        raise HTTPException(
-            status_code=403,
-            detail="Please verify your email before logging in"
+    try:
+        db_user = user_service.get_user_by_email(db, user.email)
+
+        if not db_user or not verify_password(user.password, db_user.hashed_password):
+            raise HTTPException(401, "Invalid credentials")
+
+        if not db_user.is_email_verified:
+            raise HTTPException(403, "Please verify your email")
+
+        access_token = create_access_token({"sub": str(db_user.id)})
+        refresh_token = create_refresh_token({"sub": str(db_user.id)})
+
+        auth_service.store_refresh_token(
+            db,
+            db_user.id,
+            pwd_context.hash(refresh_token),
+            datetime.now(timezone.utc) + timedelta(days=7),
         )
 
-    if not db_user or not verify_password(user.password, db_user.hashed_password):
-        raise HTTPException(status_code=401, detail="Invalid credentials")
+        return {
+            "access_token": access_token,
+            "refresh_token": refresh_token,
+        }
 
-
-    db_user.is_active = True
-    db.commit()
-
-    access_token = create_access_token({"sub": str(db_user.id)})
-    refresh_token = create_refresh_token({"sub": str(db_user.id)})
-
-    auth_service.store_refresh_token(
-        db,
-        db_user.id,
-        pwd_context.hash(refresh_token),
-        datetime.now(timezone.utc) + timedelta(days=7),
-    )
-    
-    logger.info(f"User logged in successfully user_id={db_user.id}")
-
-    return {
-        "access_token": access_token,
-        "refresh_token": refresh_token,
-    }
+    except HTTPException:
+        raise
+    except Exception:
+        db.rollback()
+        logger.exception("Login failed")
+        raise HTTPException(500, "Login failed")
  
    
 @router.post("/refresh", response_model=schemas.TokenResponse)
@@ -232,24 +232,32 @@ def refresh_token(
             status_code=401,
             detail="Invalid or expired refresh token"
         )
+    
+    try:
 
-    token_record.is_revoked = True
+        token_record.is_revoked = True
 
-    access_token = create_access_token(
-        {"sub": str(token_record.user_id)}
-    )
-    new_refresh_token = create_refresh_token(
-        {"sub": str(token_record.user_id)}
-    )
+        access_token = create_access_token(
+            {"sub": str(token_record.user_id)}
+        )
+        new_refresh_token = create_refresh_token(
+            {"sub": str(token_record.user_id)}
+        )
 
-    auth_service.store_refresh_token(
-        db=db,
-        user_id=token_record.user_id,
-        token_hash=pwd_context.hash(new_refresh_token),
-        expires_at=datetime.now(timezone.utc) + timedelta(days=7),
-    )
-
-    db.commit()
+        auth_service.store_refresh_token(
+            db=db,
+            user_id=token_record.user_id,
+            token_hash=pwd_context.hash(new_refresh_token),
+            expires_at=datetime.now(timezone.utc) + timedelta(days=7),
+        )
+        db.commit()
+    except Exception:
+        db.rollback()
+        logger.exception("Refresh token rotation failed")
+        raise HTTPException(
+            status_code=500,
+            detail="Failed to rotate refresh token"
+        )
 
     logger.info(
         f"Refresh token rotated user_id={token_record.user_id}"
@@ -301,8 +309,13 @@ def update_profile(
     if data.username:
         current_user.username = data.username
 
-    db.commit()
-    db.refresh(current_user)
+    try:
+        db.commit()
+        db.refresh(current_user)
+    except Exception:
+        db.rollback()
+        logger.exception("Profile update failed")
+        raise HTTPException(status_code=500, detail="Failed to update profile")
 
     return {
         "message": "Profile updated successfully",
@@ -356,10 +369,15 @@ def forgot_password(
         token_hash=hashed_token,
         expires_at=datetime.now(timezone.utc) + timedelta(minutes=30)
     )
-
-    db.add(reset)
-    db.commit()
     
+    try:
+        db.add(reset)
+        db.commit()
+    except Exception:
+        db.rollback()
+        logger.exception("Failed to create password reset token")
+        raise
+
     reset_link = f"http://localhost:8000/reset-password?token={raw_token}"
     
     send_reset_email(user.email, reset_link)
@@ -394,10 +412,15 @@ def reset_password(
         raise HTTPException(status_code=400, detail="Invalid or expired token")
 
     user = db.query(User).filter(User.id == reset_token.user_id).first()
-    user.hashed_password = pwd_context.hash(data.new_password)
-
-    reset_token.used = True
-    db.commit()
+    
+    try:
+        user.hashed_password = pwd_context.hash(data.new_password)
+        reset_token.used = True
+        db.commit()
+    except Exception:
+        db.rollback()
+        logger.exception("Password reset failed")
+        raise HTTPException(status_code=500, detail="Password reset failed")
 
     return {"message": "Password reset successful"}
 

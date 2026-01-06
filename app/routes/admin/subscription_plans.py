@@ -90,9 +90,14 @@ def create_subscription_plan(
         is_active=True,
     )
 
-    db.add(plan)
-    db.commit()
-    db.refresh(plan)
+    try:
+        db.add(plan)
+        db.commit()
+        db.refresh(plan)
+    except Exception:
+        db.rollback()
+        logger.exception("Failed to create subscription plan")
+        raise
     
     logger.info(f"Subscription plan created plan_id={plan.id}")
 
@@ -121,8 +126,13 @@ def update_subscription_plan(
     for field, value in data.model_dump(exclude_unset=True).items():
         setattr(plan, field, value)
 
-    db.commit()
-    db.refresh(plan)
+    try:
+        db.commit()
+        db.refresh(plan)
+    except Exception:
+        db.rollback()
+        logger.exception("Failed to update subscription plan")
+        raise
     
     logger.info(
         f"Subscription plan updated plan_id={plan.id} "
@@ -148,10 +158,15 @@ def toggle_subscription_plan(
     if not plan:
         logger.warning(f"{SUBSCRIPTION_PLAN_NOT_FOUND} plan_id={plan_id}")
         raise HTTPException(404, SUBSCRIPTION_PLAN_NOT_FOUND)
-
-    plan.is_active = not plan.is_active
-    db.commit()
     
+    try:
+        plan.is_active = not plan.is_active
+        db.commit()
+    except Exception:
+        db.rollback()
+        logger.exception("Failed to toggle subscription plan")
+        raise HTTPException(500, "Update failed")
+
     logger.info(
         f"Subscription plan status changed plan_id={plan.id} "
         f"is_active={plan.is_active}"

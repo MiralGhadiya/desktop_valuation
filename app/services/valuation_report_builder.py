@@ -23,7 +23,7 @@ def build_report_context(ai_json, user_input):
         "property_type": ai_json["property_details"]["property_type"],
         "land_area": f"{ai_json['property_details']['land_area_sqft']} sqft",
         "built_up_area": f"{ai_json['property_details']['built_up_area_sqft']} sqft",
-        "zoning": "Residential",
+        "zoning": ai_json["property_details"]["zoning"],
         "title_details": "Not Available",
         "construction_year": f"{ai_json['property_details']['age_years']} years old",
         "structure": "RCC Construction",

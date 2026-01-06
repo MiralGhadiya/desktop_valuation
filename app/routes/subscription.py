@@ -8,12 +8,11 @@ from app.deps import get_db, get_current_user
 
 from app.models import User
 from app.models.subscription import SubscriptionPlan, UserSubscription
+from app.services.exchange_rate_service import get_rate
 
 from app.utils.logger_config import app_logger as logger
 
-
 router = APIRouter(prefix="/subscription", tags=["subscription"])
-
     
 @router.get("/plans")
 def list_plans(
@@ -29,10 +28,40 @@ def list_plans(
             f"final pricing country={country}"
         )
 
-    return db.query(SubscriptionPlan).filter(
+    plans = db.query(SubscriptionPlan).filter(
         SubscriptionPlan.country_code == country,
         SubscriptionPlan.is_active == True,
     ).all()
+
+    if plans:
+        return plans
+
+    usd_plans = db.query(SubscriptionPlan).filter(
+        SubscriptionPlan.country_code == "DEFAULT",
+        SubscriptionPlan.currency == "USD",
+        SubscriptionPlan.is_active == True,
+    ).all()
+
+    if not usd_plans:
+        return []
+
+    user_currency = current_user.country.currency_code  # or map from country
+    rate = get_rate(db, user_currency)
+
+    response = []
+    for plan in usd_plans:
+        converted_price = round(plan.price * rate, 2) if rate else plan.price
+
+        response.append({
+            "id": plan.id,
+            "name": plan.name,
+            "price": converted_price,
+            "currency": user_currency if rate else "USD",
+            "converted": True,
+            "base_price_usd": plan.price,
+        })
+
+    return response
 
 
 @router.get("/my-plans")
@@ -114,9 +143,7 @@ def subscription_history(
                 "purchased_on": s.start_date,
             }
         )
-
     return result
-
 
 
 @router.get("/default")

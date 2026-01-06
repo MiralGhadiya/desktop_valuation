@@ -1,3 +1,5 @@
+# app/celery_app.py
+
 from celery import Celery
 from celery.schedules import crontab
 
@@ -29,5 +31,9 @@ celery_app.conf.beat_schedule = {
     "send-subscription-expiry-reminders-daily": {
         "task": "app.tasks.subscription_tasks.send_expiry_reminders_task",
         "schedule": crontab(hour=9, minute=0),
+    },
+    "update-exchange-rates": {
+        "task": "app.tasks.currency_tasks.update_exchange_rates",
+        "schedule": crontab(hour=0, minute=0),
     },
 }

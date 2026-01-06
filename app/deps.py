@@ -26,7 +26,11 @@ def get_current_user(
             detail="Invalid or expired token",
         )
 
-    user_id = int(payload.get("sub"))
+    try:
+        user_id = int(payload.get("sub"))
+    except (TypeError, ValueError):
+        raise HTTPException(401, "Invalid token payload")
+
     user = db.query(models.User).filter(models.User.id == user_id).first()
 
     if not user:

@@ -20,28 +20,44 @@ def store_refresh_token(
         token_hash=token_hash,
         expires_at=expires_at,
     )
-    db.add(token)
-    db.commit()
+    try:
+        db.add(token)
+        db.commit()
+    except Exception:
+        db.rollback()
+        logger.exception("Failed to store refresh token")
+        raise
 
 
 def revoke_all_refresh_tokens(db: Session, user_id: int):
     logger.info(f"Revoking all refresh tokens user_id={user_id}")
     
-    db.query(RefreshToken).filter(
-        RefreshToken.user_id == user_id
-    ).update({"revoked": True})
-    db.commit()
+    try:
+        db.query(RefreshToken).filter(
+            RefreshToken.user_id == user_id
+        ).update({"revoked": True})
+        db.commit()
+    except Exception:
+        db.rollback()
+        logger.exception("Failed to revoke refresh tokens")
+        raise
 
 
 def logout_user(db: Session, user_id: int):
     logger.info(f"Logging out user user_id={user_id}")
 
-    user = db.query(User).filter(User.id == user_id).first()
-    if user:
-        user.is_active = False
+    try:
+        user = db.query(User).filter(User.id == user_id).first()
+        if user:
+            user.is_active = False
 
-    revoke_all_refresh_tokens(db, user_id)
-    db.commit()
+        revoke_all_refresh_tokens(db, user_id)
+        db.commit()
+
+    except Exception:
+        db.rollback()
+        logger.exception("Logout failed")
+        raise
 
 
 def revoke_refresh_token(db, user_id: int, refresh_token: str, pwd_context):
@@ -54,11 +70,16 @@ def revoke_refresh_token(db, user_id: int, refresh_token: str, pwd_context):
         .all()
     )
 
-    for token in tokens:
-        if pwd_context.verify(refresh_token, token.token_hash):
-            token.is_revoked = True
-            db.commit()
-            return True
+    try:
+        for token in tokens:
+            if pwd_context.verify(refresh_token, token.token_hash):
+                token.is_revoked = True
+                db.commit()
+                return True
+    except Exception:
+        db.rollback()
+        logger.exception("Failed to revoke refresh token")
+        raise
 
     return False
 

@@ -110,9 +110,16 @@ def admin_change_password(
             detail="Old password is incorrect"
         )
 
-    current_admin.hashed_password = hash_password(data.new_password)
-    db.commit()
-    
+    try:
+        current_admin.hashed_password = hash_password(data.new_password)
+        db.commit()
+    except Exception as e:
+        logger.error(f"Error changing admin password user_id={current_admin.id} error={str(e)}")
+        raise HTTPException(
+            status_code=500,
+            detail="Error changing password"
+        )
+        
     logger.info(f"Admin password changed user_id={current_admin.id}")
 
     return {"message": "Admin password changed successfully"}

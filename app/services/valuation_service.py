@@ -11,26 +11,32 @@ def save_valuation_report(db: Session, payload: dict) -> int:
         f"Saving valuation report valuation_id={payload.get('valuation_id')} "
         f"user_id={payload.get('user_id')}"
     )
-    
-    record = ValuationReport(
-        valuation_id=payload["valuation_id"],
-        user_id=payload["user_id"],
-        subscription_id=payload["subscription_id"],
-        category=payload["category"],
-        country_code=payload["country_code"],
-        user_fields=payload["user_fields"],
-        ai_response=payload["ai_response"],
-        report_context=payload["report_context"],
-        pdf_path=payload["pdf_path"],
-    )
+    try:
+        record = ValuationReport(
+            valuation_id=payload["valuation_id"],
+            user_id=payload["user_id"],
+            subscription_id=payload["subscription_id"],
+            category=payload["category"],
+            country_code=payload["country_code"],
+            user_fields=payload["user_fields"],
+            ai_response=payload["ai_response"],
+            report_context=payload["report_context"],
+            pdf_path=payload["pdf_path"],
+        )
 
-    db.add(record)
-    db.commit()
-    db.refresh(record)
-    
-    logger.info(
-        f"Valuation report saved record_id={record.id} "
-        f"valuation_id={record.valuation_id}"
-    )
+        db.add(record)
+        db.commit()
+        db.refresh(record)
+        
+        logger.info(
+            f"Valuation report saved record_id={record.id} "
+            f"valuation_id={record.valuation_id}"
+        )
 
-    return record.id
+        return record.id
+    
+    except Exception:
+        db.rollback()
+        logger.exception("Failed to save valuation report")
+        raise
+

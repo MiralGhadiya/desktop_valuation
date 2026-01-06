@@ -147,10 +147,14 @@ def assign_subscription_to_user(
         end_date=end_date,
         is_active=True,
     )
-
-    db.add(sub)
-    db.commit()
-    db.refresh(sub)
+    try:
+        db.add(sub)
+        db.commit()
+        db.refresh(sub)
+    except Exception:
+        db.rollback()
+        logger.exception("Failed to assign subscription to user")
+        raise
     
     logger.info(
         f"Subscription assigned sub_id={sub.id} "
@@ -182,22 +186,31 @@ def update_user_subscription(
     sub = db.query(UserSubscription).filter(
         UserSubscription.id == subscription_id
     ).first()
+    
+    if not sub:
+        raise HTTPException(404, "Subscription not found")
+    
+    try:
+        changes = []
 
-    changes = []
+        if data.extend_days:
+            sub.end_date += timedelta(days=data.extend_days)
+            changes.append(f"extend_days={data.extend_days}")
 
-    if data.extend_days:
-        sub.end_date += timedelta(days=data.extend_days)
-        changes.append(f"extend_days={data.extend_days}")
+        if data.reset_reports_used:
+            sub.reports_used = 0
+            changes.append("reset_reports_used")
 
-    if data.reset_reports_used:
-        sub.reports_used = 0
-        changes.append("reset_reports_used")
+        if data.deactivate:
+            sub.is_active = False
+            changes.append("deactivated")
 
-    if data.deactivate:
-        sub.is_active = False
-        changes.append("deactivated")
-
-    db.commit()
+        db.commit()
+        
+    except Exception:
+        db.rollback()
+        logger.exception("Failed to update user subscription")
+        raise HTTPException(500, "Update failed")
 
     logger.info(
         f"Subscription updated sub_id={subscription_id} "
@@ -222,10 +235,15 @@ def cancel_subscription(
     if not sub:
         logger.warning(f"Subscription not found during cancel sub_id={subscription_id}")
         raise HTTPException(404, "Subscription not found")
-
-    sub.is_active = False
-    sub.end_date = datetime.now(timezone.utc)
-    db.commit()
+    
+    try:
+        sub.is_active = False
+        sub.end_date = datetime.now(timezone.utc)
+        db.commit()
+    except Exception:
+        db.rollback()
+        logger.exception("Failed to cancel subscription")
+        raise HTTPException(500, "Cancel failed")
     
     logger.info(f"Subscription cancelled sub_id={subscription_id}")
 

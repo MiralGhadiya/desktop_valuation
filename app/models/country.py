@@ -13,5 +13,6 @@ class Country(Base):
     name = Column(String, nullable=False)
     country_code = Column(String, index=True)  # IN, US
     dial_code = Column(String)
-
+    currency_code = Column(String, nullable=True)  # INR, USD
+    
     users = relationship("User", back_populates="country")
