@@ -154,7 +154,7 @@ def assign_subscription_to_user(
     except Exception:
         db.rollback()
         logger.exception("Failed to assign subscription to user")
-        raise
+        raise HTTPException(500, "Subscription assignment failed")
     
     logger.info(
         f"Subscription assigned sub_id={sub.id} "

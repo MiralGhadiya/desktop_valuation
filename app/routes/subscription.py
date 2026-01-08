@@ -20,14 +20,16 @@ def list_plans(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    country = request.state.ip_country or current_user.country.country_code
+    
+    ip_country = getattr(request.state, "ip_country", None)
+    country = ip_country or current_user.country.country_code
 
     logger.debug(
-            f"IP country={request.state.ip_country}, "
-            f"user country={current_user.country.country_code}, "
-            f"final pricing country={country}"
-        )
-
+        f"IP country={ip_country}, "
+        f"user country={current_user.country.country_code}, "
+        f"final pricing country={country}"
+    )
+    
     plans = db.query(SubscriptionPlan).filter(
         SubscriptionPlan.country_code == country,
         SubscriptionPlan.is_active == True,
@@ -47,10 +49,17 @@ def list_plans(
 
     user_currency = current_user.country.currency_code  # or map from country
     rate = get_rate(db, user_currency)
+    if rate is None:
+        logger.warning(f"No exchange rate for currency={user_currency}")
 
     response = []
     for plan in usd_plans:
-        converted_price = round(plan.price * rate, 2) if rate else plan.price
+        # converted_price = round(plan.price * rate, 2) if rate else plan.price
+        converted_price = (
+            round(plan.price * rate, 2)
+            if rate is not None
+            else plan.price
+        )
 
         response.append({
             "id": plan.id,
@@ -70,20 +79,26 @@ def get_my_active_plans(
     current_user: User = Depends(get_current_user),
 ):
     now = datetime.now(timezone.utc)
-
-    plans = (
-        db.query(UserSubscription)
-        .join(SubscriptionPlan)
-        .filter(
-            UserSubscription.user_id == current_user.id,
-            UserSubscription.is_active == True,
-            UserSubscription.start_date <= now,
-            UserSubscription.end_date >= now,
-            SubscriptionPlan.is_active == True,
+    try:
+        plans = (
+            db.query(UserSubscription)
+            .join(SubscriptionPlan)
+            .filter(
+                UserSubscription.user_id == current_user.id,
+                UserSubscription.is_active == True,
+                UserSubscription.start_date <= now,
+                UserSubscription.end_date >= now,
+                SubscriptionPlan.is_active == True,
+            )
+            .order_by(UserSubscription.end_date.asc())
+            .all()
         )
-        .order_by(UserSubscription.end_date.asc())
-        .all()
-    )
+    except Exception:
+        logger.exception("Failed to fetch user subscriptions")
+        raise HTTPException(
+            status_code=500,
+            detail="Could not retrieve subscriptions"
+        )
 
     return [
         {
@@ -110,14 +125,21 @@ def subscription_history(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    plans = (
-        db.query(UserSubscription)
-        .join(SubscriptionPlan)
-        .filter(UserSubscription.user_id == current_user.id)
-        .order_by(UserSubscription.start_date.desc())
-        .all()
-    )
-
+    try:
+        plans = (
+            db.query(UserSubscription)
+            .join(SubscriptionPlan)
+            .filter(UserSubscription.user_id == current_user.id)
+            .order_by(UserSubscription.start_date.desc())
+            .all()
+        )
+    except Exception:
+        logger.exception("Failed to fetch subscription history")
+        raise HTTPException(
+            status_code=500,
+            detail="Could not retrieve subscription history"
+        )
+        
     now = datetime.now(timezone.utc)
 
     result = []
@@ -153,21 +175,28 @@ def get_default_subscription(
 ):
     now = datetime.now(timezone.utc)
 
-    sub = (
-        db.query(UserSubscription)
-        .join(SubscriptionPlan)
-        .filter(
-            UserSubscription.user_id == current_user.id,
-            UserSubscription.is_active == True,
-            UserSubscription.start_date <= now,
-            UserSubscription.end_date >= now,
+    try:
+        sub = (
+            db.query(UserSubscription)
+            .join(SubscriptionPlan)
+            .filter(
+                UserSubscription.user_id == current_user.id,
+                UserSubscription.is_active == True,
+                UserSubscription.start_date <= now,
+                UserSubscription.end_date >= now,
+            )
+            .order_by(
+                SubscriptionPlan.price.desc(),
+                UserSubscription.end_date.desc()
+            )
+            .first()
         )
-        .order_by(
-            SubscriptionPlan.price.desc(),
-            UserSubscription.end_date.desc()
+    except Exception:
+        logger.exception("Failed to fetch default subscription")
+        raise HTTPException(
+            status_code=500,
+            detail="Could not retrieve default subscription"
         )
-        .first()
-    )
 
     if not sub:
         raise HTTPException(404, "No active subscription")
@@ -207,7 +236,7 @@ def get_subscription_usage(
     now = datetime.now(timezone.utc)
 
     end_date = subscription.end_date
-    if end_date.tzinfo is None:
+    if end_date and end_date.tzinfo is None:
         end_date = end_date.replace(tzinfo=timezone.utc)
 
     max_reports = subscription.plan.max_reports

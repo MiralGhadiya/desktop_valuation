@@ -157,10 +157,15 @@ def verify_user_email(
     if user.is_email_verified:
         logger.info(f"Email already verified user_id={user_id}")
         return {"message": "Email already verified"}
-
-    user.is_email_verified = True
-    user.email_verified_at = datetime.now(timezone.utc)
-    db.commit()
+    
+    try:
+        user.is_email_verified = True
+        user.email_verified_at = datetime.now(timezone.utc)
+        db.commit()
+    except Exception:
+        db.rollback()
+        logger.exception("Failed to verify user email")
+        raise HTTPException(500, "Email verification failed")
     
     logger.info(f"User email verified user_id={user_id}")
 

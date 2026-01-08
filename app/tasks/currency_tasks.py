@@ -2,13 +2,15 @@ import os
 import requests
 from datetime import datetime
 from dotenv import load_dotenv
+from celery import shared_task
 
 from app.database import SessionLocal
 from app.models import ExchangeRate
 
 load_dotenv() 
 
-def update_exchange_rates():
+@shared_task(bind=True, autoretry_for=(Exception,), retry_backoff=60, retry_kwargs={"max_retries": 3})
+def update_exchange_rates(self):
     api_key = os.getenv("EXCHANGE_RATE_API_KEY")
     if not api_key:
         raise RuntimeError("EXCHANGE_RATE_API_KEY not set")

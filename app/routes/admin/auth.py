@@ -76,11 +76,11 @@ def admin_logout(
     current_admin: User = Depends(require_superuser),
     db: Session = Depends(get_db),
 ):
-    auth_service.revoke_all_refresh_tokens(
-        db,
-        current_admin.id
-    )
-    logger.info(f"Admin logged out user_id={current_admin.id}")
+    try:
+        auth_service.revoke_all_refresh_tokens(db, current_admin.id)
+    except Exception as e:
+        logger.exception("Admin logout failed")
+        raise HTTPException(500, "Logout failed")
 
     return {"message": "Admin logged out successfully"}
 

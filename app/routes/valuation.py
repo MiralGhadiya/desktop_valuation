@@ -49,7 +49,11 @@ async def create_valuation_form(
     
     try:
     
-        user_input = form.model_dump()
+        try:
+            user_input = form.model_dump()
+        except Exception:
+            logger.exception("Invalid valuation form data")
+            raise HTTPException(400, "Invalid valuation input")
 
         raw_type = user_input["property_type"].strip().lower()
         
@@ -104,13 +108,19 @@ async def create_valuation_form(
         
         logger.debug("Enforcing subscription limits")
 
-        subscription = enforce_subscription(
-            db=db,
-            user_id=current_user.id,
-            subscription_id=subscription_id,
-            category=category,
-        )
-        
+        try:
+            subscription = enforce_subscription(
+                db=db,
+                user_id=current_user.id,
+                subscription_id=subscription_id,
+                category=category,
+            )
+        except HTTPException:
+            raise
+        except Exception:
+            logger.exception("Subscription enforcement failed")
+            raise HTTPException(500, "Subscription validation failed")
+
         logger.info("Generating valuation via OpenAI")
         
         country_code = None
@@ -118,9 +128,12 @@ async def create_valuation_form(
         if hasattr(current_user, "country") and current_user.country:
             country_code = current_user.country.country_code
 
+        if not country_code:    
+            country_code = getattr(request.state, "ip_country", None)
+        
         if not country_code:
-            country_code = request.state.ip_country
-                
+            country_code = "UNKNOWN"
+
         job = ValuationJob(
             id=str(uuid.uuid4()),
             user_id=current_user.id,
@@ -137,12 +150,19 @@ async def create_valuation_form(
 
         except Exception:
             db.rollback()
-            job.status = "failed"
-            job.error_message = "Queue unavailable"
-            db.add(job)
-            db.commit()
+            logger.exception("Failed queuing valuation job")
+
+            try:
+                job.status = "failed"
+                job.error_message = "Queue unavailable"
+                db.add(job)
+                db.commit()
+            except Exception:
+                db.rollback()
+                logger.exception("Failed updating job failure state")
+
             raise HTTPException(503, "Valuation service unavailable")
-        
+
         # existing = (
         #     db.query(ValuationJob)
         #     .filter(
@@ -220,22 +240,37 @@ async def create_valuation_form(
     #         "pdf_path": pdf_path
     #     }
         
+    except HTTPException:
+        # Preserve intended HTTP responses (400, 403, 503, etc.)
+        raise
+
     except Exception:
         logger.exception("Valuation creation failed")
-        raise
-    
+        raise HTTPException(
+            status_code=500,
+            detail="Failed to create valuation request"
+        )
+
+        
     
 @router.get("/my-valuations")
 def my_valuations(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    valuations = (
-        db.query(ValuationReport)
-        .filter(ValuationReport.user_id == current_user.id)
-        .order_by(ValuationReport.created_at.desc())
-        .all()
-    )
+    try:
+        valuations = (
+            db.query(ValuationReport)
+            .filter(ValuationReport.user_id == current_user.id)
+            .order_by(ValuationReport.created_at.desc())
+            .all()
+        )
+    except Exception:
+        logger.exception("Failed to fetch user valuations")
+        raise HTTPException(
+            status_code=500,
+            detail="Could not retrieve valuations"
+        )
 
     return [
         {
@@ -314,10 +349,17 @@ def get_job_status(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    job = db.query(ValuationJob).filter(
-        ValuationJob.id == job_id,
-        ValuationJob.user_id == current_user.id,
-    ).first()
+    try:
+        job = db.query(ValuationJob).filter(
+            ValuationJob.id == job_id,
+            ValuationJob.user_id == current_user.id,
+        ).first()
+    except Exception:
+        logger.exception("Failed to fetch valuation job")
+        raise HTTPException(
+            status_code=500,
+            detail="Could not retrieve job status"
+        )
 
     if not job:
         raise HTTPException(404, "Job not found")

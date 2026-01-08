@@ -18,6 +18,13 @@ if not OPENAI_API_KEY:
 client = OpenAI(api_key=OPENAI_API_KEY)
 logger.info("OpenAI client initialized successfully")
 
+class LLMError(Exception):
+    """Base exception for LLM-related errors."""
+    pass
+
+class LLMServiceUnavailable(LLMError):
+    pass
+
 BASE_PROMPT = """
           Role: Certified real estate valuation engine.
 
@@ -186,7 +193,6 @@ FORECAST_SCHEMA = """
       """
 
 
-
 @traceable(name="generate_forecast", run_type="llm")
 def generate_forecast(core_output: dict):
     prompt = f"""
@@ -217,15 +223,28 @@ def generate_forecast(core_output: dict):
           "value_in_12_months": 0
         }}
       """
+    try:
+      response = client.chat.completions.create(
+          model="gpt-5.2",
+          messages=[{"role": "user", "content": prompt}],
+          temperature=0.2,
+          response_format={"type": "json_object"},
+      )
 
-    response = client.chat.completions.create(
-        model="gpt-5.2",
-        messages=[{"role": "user", "content": prompt}],
-        temperature=0.2,
-        response_format={"type": "json_object"},
-    )
+      return json.loads(response.choices[0].message.content)
+    
+    except json.JSONDecodeError:
+          logger.exception("Invalid JSON in forecast response")
+          raise LLMServiceUnavailable("Forecast generation failed")
 
-    return json.loads(response.choices[0].message.content)
+    except OpenAIError as e:
+        logger.exception("OpenAI error during forecast")
+        raise LLMServiceUnavailable("Forecast service unavailable") from e
+
+    except Exception:
+        logger.exception("Unexpected forecast failure")
+        raise LLMServiceUnavailable("Forecast generation failed")
+
 
 
 @traceable(name="openai_chat_completion", run_type="llm")

@@ -1,8 +1,10 @@
 # app/routes/auth.py
-
+import os
 import secrets
 from app.auth import pwd_context
 from sqlalchemy.orm import Session
+from dotenv import load_dotenv
+load_dotenv()
 from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
 from datetime import datetime, timedelta, timezone
@@ -20,13 +22,13 @@ from app.models import EmailVerificationToken, User, SubscriptionPlan, UserSubsc
 
 from app.utils.logger_config import app_logger as logger
 
-datetime.now(timezone.utc)
+BASE_URL = os.getenv("BASE_URL", "http://localhost:8000")
 
+datetime.now(timezone.utc)
 
 router = APIRouter()
 
 templates = Jinja2Templates(directory="app/templates")
-
 
 @router.post("/register")
 def register(user: schemas.UserCreate, db: Session = Depends(get_db)):
@@ -79,11 +81,14 @@ def register(user: schemas.UserCreate, db: Session = Depends(get_db)):
         db.add(verification)
 
         db.commit()
-
-        send_verification_email(
-            new_user.email,
-            f"http://localhost:8000/verify-email?token={raw_token}"
-        )
+        
+        try:
+            send_verification_email(
+                new_user.email,
+                f"{BASE_URL}/verify-email?token={raw_token}"
+            )
+        except Exception:
+            logger.exception("Failed to send verification email")
 
         return {"message": "Registration successful. Please verify your email."}
 
@@ -165,7 +170,7 @@ def resend_verification_email(
     except Exception:
         db.rollback()
         logger.exception("Failed to create email verification token")
-        raise
+        raise HTTPException(500, "Failed to resend verification email")
 
     verify_link = f"http://localhost:8000/verify-email?token={raw_token}"
     send_verification_email(user.email, verify_link)
@@ -207,7 +212,6 @@ def login(user: schemas.UserLogin, db: Session = Depends(get_db)):
     except HTTPException:
         raise
     except Exception:
-        db.rollback()
         logger.exception("Login failed")
         raise HTTPException(500, "Login failed")
  
@@ -376,7 +380,7 @@ def forgot_password(
     except Exception:
         db.rollback()
         logger.exception("Failed to create password reset token")
-        raise
+        raise HTTPException(500, "Failed to initiate password reset")
 
     reset_link = f"http://localhost:8000/reset-password?token={raw_token}"
     
@@ -441,9 +445,12 @@ def logout(
     """
     Logout user from ALL devices (revoke all refresh tokens)
     """
+    try:    
+        auth_service.logout_user(db, current_user.id)
 
-    auth_service.logout_user(db, current_user.id)
+        logger.info(f"User logout user_id={current_user.id}")
 
-    logger.info(f"User logout user_id={current_user.id}")
-
-    return {"message": "Logged out successfully"}
+        return {"message": "Logged out successfully"}
+    except Exception:
+        logger.exception(f"Logout failed user_id={current_user.id}")
+        raise HTTPException(500, "Logout failed")

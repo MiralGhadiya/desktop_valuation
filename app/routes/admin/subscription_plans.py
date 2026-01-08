@@ -97,7 +97,7 @@ def create_subscription_plan(
     except Exception:
         db.rollback()
         logger.exception("Failed to create subscription plan")
-        raise
+        raise HTTPException(500, "Creation failed")
     
     logger.info(f"Subscription plan created plan_id={plan.id}")
 
@@ -132,7 +132,7 @@ def update_subscription_plan(
     except Exception:
         db.rollback()
         logger.exception("Failed to update subscription plan")
-        raise
+        raise HTTPException(500, "Update failed")
     
     logger.info(
         f"Subscription plan updated plan_id={plan.id} "

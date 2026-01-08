@@ -98,8 +98,10 @@ def create_order(
         except Exception:
             db.rollback()
             logger.exception("Failed to delete existing pending subscription")
-            raise
-
+            raise HTTPException(
+                status_code=500,
+                detail="Failed to reset previous pending payment"
+            )
 
     # if existing_pending and existing_pending.razorpay_order_id:
     #     return {
@@ -145,11 +147,22 @@ def create_order(
             "currency": currency,
             "subscription_id": sub.id
         }
+    except razorpay.errors.BadRequestError:
+        db.rollback()
+        logger.exception("Invalid Razorpay order request")
+        raise HTTPException(400, "Invalid payment request")
+
+    except razorpay.errors.ServerError:
+        db.rollback()
+        logger.exception("Razorpay server error")
+        raise HTTPException(502, "Payment gateway unavailable")
+
     except Exception:
         db.rollback()
-        logger.exception("Payment order creation failed")
-        raise HTTPException(502, "Payment gateway error")
+        logger.exception("Unexpected error during order creation")
+        raise HTTPException(500, "Unable to create payment order")
 
+        
 
 @router.post("/verify")
 def verify_payment(
@@ -169,7 +182,8 @@ def verify_payment(
                 "razorpay_signature": data["razorpay_signature"],
             })
         except SignatureVerificationError:
-            raise HTTPException(400, "Payment verification failed")
+            logger.warning("Invalid Razorpay signature")
+            raise HTTPException(400, "Invalid payment signature")
 
         sub = db.query(UserSubscription).filter(
             UserSubscription.razorpay_order_id == data["razorpay_order_id"],
@@ -203,6 +217,9 @@ def verify_payment(
 
         return {"message": "Payment successful & subscription activated"}
     
+    except HTTPException:
+            raise
+
     except Exception:
         db.rollback()
         logger.exception("Payment verification failed")

@@ -2,14 +2,16 @@
 import os
 import logging
 
-from datetime import datetime
+# from datetime import datetime
 from logging.handlers import TimedRotatingFileHandler
 
 LOG_DIR = os.path.join(os.path.dirname(__file__), "../logs")
 os.makedirs(LOG_DIR, exist_ok=True)
 
-TODAY = datetime.now().strftime("%Y-%m-%d")
-LOG_FILE = os.path.join(LOG_DIR, f"{TODAY}.log")
+# TODAY = datetime.now().strftime("%Y-%m-%d")
+# LOG_FILE = os.path.join(LOG_DIR, f"{TODAY}.log")
+
+LOG_FILE = os.path.join(LOG_DIR, "app.log")
 
 logger = logging.getLogger("app_logger")
 logger.setLevel(logging.DEBUG)
@@ -33,6 +35,7 @@ formatter = logging.Formatter(
     "%(asctime)s | %(levelname)s | %(name)s | %(message)s",
     "%Y-%m-%d %H:%M:%S",
 )
+
 file_handler.setFormatter(formatter)
 console_handler.setFormatter(formatter)
 

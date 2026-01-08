@@ -21,6 +21,7 @@ celery_app.conf.update(
 celery_app.conf.imports = (
     "app.tasks.subscription_tasks",
     "app.tasks.valuation_tasks",
+    "app.tasks.currency_tasks",
 )
 
 celery_app.conf.beat_schedule = {

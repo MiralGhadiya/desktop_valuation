@@ -8,10 +8,6 @@ class UserBase(BaseModel):
     username: str
 
 
-class UserCreate(UserBase):
-    password: str
-
-
 class UserLogin(BaseModel):
     email: EmailStr
     password: str
@@ -25,15 +21,11 @@ class UserResponse(UserBase):
         from_attributes = True
 
 
-class UserBaseMinimal(BaseModel):
-    email: EmailStr | None = None
+class UserCreate(BaseModel):
+    email: EmailStr
     username: str
     mobile_number: str
-
-
-class UserCreate(UserBase):
     password: str
-    
     
 class LogoutRequest(BaseModel):
     refresh_token: str
