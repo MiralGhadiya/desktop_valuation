@@ -1,12 +1,18 @@
 #app/routes/admin/subscription_plans.py
 
-from typing import List, Optional
+from datetime import datetime
+from datetime import datetime
+from locale import currency
+from typing import Optional
 from sqlalchemy.orm import Session
 from fastapi import APIRouter, Depends, HTTPException, Query
 
 from app.deps import get_db, require_superuser
 from app.models.subscription import SubscriptionPlan
 from app.schemas import SubscriptionPlanResponse, SubscriptionPlanCreate, SubscriptionPlanUpdate
+
+from app.common import PaginatedResponse
+from app.deps import pagination_params
 
 from app.utils.logger_config import app_logger as logger
 
@@ -18,37 +24,143 @@ router = APIRouter(
 SUBSCRIPTION_PLAN_NOT_FOUND = "Subscription plan not found"
 
 
-@router.get("", response_model=List[SubscriptionPlanResponse])
+class SubscriptionPlanFilters:
+    def __init__(
+        self,
+        country_code: Optional[str] = Query(None),
+        is_active: Optional[bool] = Query(None),
+
+        min_price: Optional[int] = Query(None, ge=0),
+        max_price: Optional[int] = Query(None, ge=0),
+        
+        max_reports: Optional[int] = Query(None, ge=0),
+        min_reports: Optional[int] = Query(None, ge=0),
+
+        currency: Optional[str] = Query(None),
+
+        has_per_report_price: Optional[bool] = Query(None),
+
+        created_from: Optional[datetime] = Query(None),
+        created_to: Optional[datetime] = Query(None),
+
+        category: Optional[str] = Query(None),
+    ):
+        self.country_code = country_code
+        self.is_active = is_active
+        self.min_price = min_price
+        self.max_price = max_price
+        self.min_reports = min_reports
+        self.max_reports = max_reports
+        self.currency = currency
+        self.has_per_report_price = has_per_report_price
+        self.created_from = created_from
+        self.created_to = created_to
+        self.category = category
+        
+
+@router.get("", response_model=PaginatedResponse[SubscriptionPlanResponse])
 def list_subscription_plans(
     db: Session = Depends(get_db),
     _: None = Depends(require_superuser),
+    
+    params: dict = Depends(pagination_params),
+    
+    filters: SubscriptionPlanFilters = Depends(),
 
-    country_code: Optional[str] = Query(None),
-    is_active: Optional[bool] = Query(None),
 ):
     logger.info(
         "Admin subscription plans list requested "
-        f"country_code={country_code} is_active={is_active}"
+        f"country_code={filters.country_code} is_active={filters.is_active} "
+        f"search={params['search']}"
     )
 
     query = db.query(SubscriptionPlan)
 
-    if country_code:
+    if params["search"]:
         query = query.filter(
-            SubscriptionPlan.country_code == country_code.upper()
+            SubscriptionPlan.name.ilike(f"%{params['search']}%")
         )
 
-    if is_active is not None:
+    if filters.country_code:
         query = query.filter(
-            SubscriptionPlan.is_active == is_active
+            SubscriptionPlan.country_code == filters.country_code.upper()
         )
-        
-    plans = query.order_by(SubscriptionPlan.id.desc()).all()
+
+    if filters.is_active is not None:
+        query = query.filter(
+            SubscriptionPlan.is_active == filters.is_active
+        )
+
+    if filters.min_price is not None:
+        query = query.filter(SubscriptionPlan.price >= filters.min_price)
+
+    if filters.max_price is not None:
+        query = query.filter(SubscriptionPlan.price <= filters.max_price)
+
+    if filters.currency:
+        query = query.filter(
+            SubscriptionPlan.currency == filters.currency.upper()
+        )
+
+    if filters.min_reports is not None:
+        query = query.filter(
+            SubscriptionPlan.max_reports >= filters.min_reports
+        )
+
+    if filters.max_reports is not None:
+        query = query.filter(
+            SubscriptionPlan.max_reports <= filters.max_reports
+        )
+
+    if filters.has_per_report_price is not None:
+        if filters.has_per_report_price:
+            query = query.filter(
+                SubscriptionPlan.per_report_price.isnot(None)
+            )
+        else:
+            query = query.filter(
+                SubscriptionPlan.per_report_price.is_(None)
+            )
+
+    if filters.created_from:
+        query = query.filter(
+            SubscriptionPlan.created_at >= filters.created_from
+        )
+
+    if filters.created_to:
+        query = query.filter(
+            SubscriptionPlan.created_at <= filters.created_to
+        )
+
+    if filters.category:
+        query = query.filter(
+            SubscriptionPlan.allowed_categories.contains(
+                [filters.category]
+            )
+        )
+
+    total = query.count()
+
+    plans = (
+        query
+        .order_by(SubscriptionPlan.id.desc())
+        .offset((params["page"] - 1) * params["limit"])
+        .limit(params["limit"])
+        .all()
+    )
+
     logger.debug(f"Admin subscription plans fetched count={len(plans)}")
 
-    return query.order_by(SubscriptionPlan.id.desc()).all()
-
-
+    return {
+        "data": plans,
+        "pagination": {
+            "page": params["page"],
+            "limit": params["limit"],
+            "total": total,
+        }
+    }
+    
+    
 @router.get("/{plan_id}", response_model=SubscriptionPlanResponse)
 def get_subscription_plan(
     plan_id: int,

@@ -2,7 +2,8 @@
 
 from datetime import datetime
 from sqlalchemy.orm import relationship
-from sqlalchemy import Column, Integer, String, Boolean, DateTime, ForeignKey, JSON
+from sqlalchemy import Column, Integer, String, Boolean, DateTime, ForeignKey
+from sqlalchemy.dialects.postgresql import JSONB
 
 from app.database import Base
 
@@ -17,10 +18,10 @@ class SubscriptionPlan(Base):
     price = Column(Integer, nullable=False)             
     currency = Column(String, nullable=False)           
 
-    max_reports = Column(Integer, nullable=True)         
-    allowed_categories = Column(JSON, nullable=False)  
+    max_reports = Column(Integer, nullable=True)
+    allowed_categories = Column(JSONB, nullable=False)  
 
-    per_report_price = Column(Integer, nullable=True)   
+    per_report_price = Column(Integer, nullable=True)
     is_active = Column(Boolean, default=True)
 
     created_at = Column(DateTime, default=datetime.utcnow)

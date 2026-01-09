@@ -27,8 +27,17 @@
 
 ---------- Pagination in all get apis and filter and search in all get apis ---------------------
 
+---- In admin/user-subscription start from date filteration is not working ------
 
 
+
+Add /subscription/cancel
+
+Add /subscription/upgrade-preview
+
+Add /subscription/renew
+
+Add /subscription/limits endpoint
 
 
 

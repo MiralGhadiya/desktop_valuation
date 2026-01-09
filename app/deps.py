@@ -2,7 +2,7 @@
 
 from sqlalchemy.orm import Session
 from fastapi.security import OAuth2PasswordBearer
-from fastapi import Depends, HTTPException, status
+from fastapi import Depends, HTTPException, status, Query
 
 from app import models
 from app.database import get_db
@@ -55,3 +55,17 @@ def require_superuser(
         logger.warning(f"Superuser access denied user_id={current_user.id}")
         raise HTTPException(403, "Superuser access required")
     return current_user
+
+
+def pagination_params(
+    page: int = Query(1, ge=1),
+    limit: int = Query(10, ge=1, le=100),
+    search: str | None = Query(None),
+    is_active: bool | None = Query(None),
+):
+    return {
+        "page": page,
+        "limit": limit,
+        "search": search,
+        "is_active": is_active,
+    }

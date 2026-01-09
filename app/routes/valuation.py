@@ -2,24 +2,28 @@
 
 import os
 import uuid
+from typing import Optional
 from fastapi import Request
-from datetime import datetime
+from sqlalchemy import or_
 from app.database import get_db
 from sqlalchemy.orm import Session
+from app.common import PaginatedResponse
 from fastapi.responses import FileResponse
-from fastapi import APIRouter, HTTPException, UploadFile, File, Depends, Form
+from datetime import datetime, timezone, timedelta
+
+from fastapi import APIRouter, HTTPException, UploadFile, File, Depends, Form, Query
 
 # from app.llm.openai import generate_valuation_report
 # from app.llm.gemini import generate_valuation_summary
 
-from app.deps import get_current_user
+from app.deps import get_current_user, pagination_params
 from app.tasks.valuation_tasks import process_valuation_job
 
 # from app.utils.email import send_pdf_email
 # from app.utils.pdf_generator import render_html, generate_pdf_from_html
 
 # from app.services.valuation_service import save_valuation_report
-from app.services.subscription_service import enforce_subscription, increment_usage
+from app.services.subscription_service import enforce_subscription
 
 from app.models import User, ValuationReport
 from app.models.valuation import DesktopValuationForm, ValuationJob, desktop_valuation_form_dep
@@ -252,27 +256,59 @@ async def create_valuation_form(
         )
 
         
-    
-@router.get("/my-valuations")
+@router.get(
+    "/my-valuations",
+    response_model=PaginatedResponse[dict]
+)
 def my_valuations(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
+
+    params: dict = Depends(pagination_params),
+    category: Optional[str] = Query(None)
+
 ):
-    try:
-        valuations = (
-            db.query(ValuationReport)
-            .filter(ValuationReport.user_id == current_user.id)
-            .order_by(ValuationReport.created_at.desc())
-            .all()
-        )
-    except Exception:
-        logger.exception("Failed to fetch user valuations")
-        raise HTTPException(
-            status_code=500,
-            detail="Could not retrieve valuations"
+    logger.info(
+        f"Fetching user valuations user_id={current_user.id} "
+        f"page={params['page']} limit={params['limit']}"
+    )
+
+    query = (
+        db.query(ValuationReport)
+        .filter(ValuationReport.user_id == current_user.id)
+    )
+    
+    if category:
+        query = query.filter(
+            ValuationReport.category == category
         )
 
-    return [
+    if params["search"]:
+        query = query.filter(
+            or_(
+                ValuationReport.valuation_id.ilike(
+                    f"%{params['search']}%"
+                ),
+                ValuationReport.category.ilike(
+                    f"%{params['search']}%"
+                ),
+                ValuationReport.country_code.ilike(
+                    f"%{params['search']}%"
+                ),
+            )
+        )
+
+    total = query.count()
+
+    valuations = (
+        query
+        .order_by(ValuationReport.created_at.desc())
+        .offset((params["page"] - 1) * params["limit"])
+        .limit(params["limit"])
+        .all()
+    )
+
+    data = [
         {
             "valuation_id": v.valuation_id,
             "category": v.category,
@@ -282,6 +318,15 @@ def my_valuations(
         for v in valuations
     ]
 
+    return {
+        "data": data,
+        "pagination": {
+            "page": params["page"],
+            "limit": params["limit"],
+            "total": total,
+        }
+    }
+    
 
 @router.get("/valuation/{valuation_id}")
 def get_valuation(

@@ -18,7 +18,7 @@ class User(Base):
 
     is_active = Column(Boolean, default=True)
     is_email_verified = Column(Boolean, default=False)
-    email_verified_at = Column(DateTime, nullable=True)
+    email_verified_at = Column(DateTime, nullable=True, index=True)
 
     country = relationship("Country", back_populates="users")
     

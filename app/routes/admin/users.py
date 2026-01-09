@@ -1,16 +1,19 @@
 #app/router/admin/users.py
 
-from typing import Optional, List
+from sqlalchemy import or_
+from typing import Optional
 from sqlalchemy.orm import Session
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from fastapi import APIRouter, Depends, HTTPException, Query
 
 from app.auth import hash_password
+from app.deps import pagination_params
 from app.deps import get_db, require_superuser
 
 from app.models import User
 from app.services import auth_service
 from app.schemas import AdminUserResponse, AdminResetPassword
+from app.common import PaginatedResponse
 
 from app.utils.logger_config import app_logger as logger
 
@@ -23,46 +26,116 @@ router = APIRouter(
 
 USER_NOT_FOUND = "User not found"
 
-@router.get("", response_model=List[AdminUserResponse])
+@router.get("", response_model=PaginatedResponse[AdminUserResponse])
 def list_users(
     db: Session = Depends(get_db),
     _: User = Depends(require_superuser),
+    
+    params: dict = Depends(pagination_params),
 
-    is_active: Optional[bool] = Query(None),
     is_email_verified: Optional[bool] = Query(None),
+    is_superuser: Optional[bool] = Query(None),
     country_id: Optional[int] = Query(None),
-    search: Optional[str] = Query(None),
+    is_active: Optional[bool] = Query(None),
+    
+    verified_from: Optional[datetime] = Query(
+        None, description="Email verified from this date (UTC)"
+    ),
+    verified_to: Optional[datetime] = Query(
+        None, description="Email verified until this date (UTC)"
+    ),
+    verified_within_days: Optional[int] = Query(
+        None, ge=1, le=365, description="Email verified within last N days"
+    ),
+
+    sort_by: str = Query("id"),
+    order: str = Query("desc"),
+
 ):
     logger.info(
         "Admin listing users "
-        f"is_active={is_active} verified={is_email_verified} "
-        f"country_id={country_id} search={search}"
+        f"page={params['page']} limit={params['limit']} "
+        f"search={params['search']}"
     )
 
     query = db.query(User)
+    
+    if params["search"]:
+        query = query.filter(
+            or_(
+                User.username.ilike(f"%{params['search']}%"),
+                User.email.ilike(f"%{params['search']}%"),
+                User.mobile_number.ilike(f"%{params['search']}%"),
+            )
+        )
 
     if is_active is not None:
         query = query.filter(User.is_active == is_active)
 
     if is_email_verified is not None:
-        query = query.filter(
-            User.is_email_verified == is_email_verified
-        )
+        query = query.filter(User.is_email_verified == is_email_verified)
+
+    if is_superuser is not None:
+        query = query.filter(User.is_superuser == is_superuser)
 
     if country_id:
         query = query.filter(User.country_id == country_id)
-
-    if search:
-        query = query.filter(
-            (User.username.ilike(f"%{search}%")) |
-            (User.email.ilike(f"%{search}%")) |
-            (User.mobile_number.ilike(f"%{search}%"))
-        )
         
-    users = query.order_by(User.id.desc()).all()
-    logger.debug(f"Admin fetched users count={len(users)}")
+    now = datetime.now(timezone.utc)
 
-    return query.order_by(User.id.desc()).all()
+    if verified_within_days:
+        start_date = now - timedelta(days=verified_within_days)
+        query = query.filter(
+            User.email_verified_at.isnot(None),
+            User.email_verified_at >= start_date
+        )
+
+    if verified_from:
+        query = query.filter(User.email_verified_at >= verified_from)
+
+    if verified_to:
+        query = query.filter(User.email_verified_at <= verified_to)
+        
+    # 📊 TOTAL COUNT
+    total = query.count()
+
+    # 🔃 SORTING
+    ALLOWED_SORT_FIELDS = {
+        "id": User.id,
+        "email": User.email,
+        "username": User.username,
+        "email_verified_at": User.email_verified_at,
+    }
+
+    sort_column = ALLOWED_SORT_FIELDS.get(sort_by)
+    if not sort_column:
+        raise HTTPException(400, "Invalid sort field")
+
+    if order.lower() == "asc":
+        query = query.order_by(sort_column.asc())
+    else:
+        query = query.order_by(sort_column.desc())
+
+    # 📄 PAGINATION
+    users = (
+        query
+        .offset((params["page"] - 1) * params["limit"])
+        .limit(params["limit"])
+        .all()
+    )
+
+    logger.debug(
+        f"Admin fetched users count={len(users)} total={total}"
+    )
+
+    return {
+        "data": users,
+        "pagination": {
+            "page": params["page"],
+            "limit": params["limit"],
+            "total": total,
+        }
+    }
 
 
 @router.get("/{user_id}", response_model=AdminUserResponse)

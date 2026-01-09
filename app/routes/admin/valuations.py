@@ -1,8 +1,9 @@
 # app/router/admin/valuations.py
 
 from datetime import datetime
-from typing import Optional, List
+from typing import Optional
 from sqlalchemy.orm import Session
+from sqlalchemy import or_
 from fastapi import APIRouter, Depends, HTTPException, Query
 
 from app.deps import get_db, require_superuser
@@ -11,6 +12,9 @@ from app.models import User
 from app.models.valuation import ValuationReport
 
 from app.schemas import ValuationResponse, ValuationDetailResponse
+
+from app.common import PaginatedResponse
+from app.deps import pagination_params
 
 from app.utils.logger_config import app_logger as logger
 
@@ -21,25 +25,44 @@ router = APIRouter(
 )
 
 
-@router.get("/valuations", response_model=List[ValuationResponse])
+@router.get("/valuations", response_model=PaginatedResponse[ValuationResponse])
 def list_valuations(
     db: Session = Depends(get_db),
     _: None = Depends(require_superuser),
+    
+    params: dict = Depends(pagination_params),
 
     user_id: Optional[int] = Query(None),
     country_code: Optional[str] = Query(None),
     category: Optional[str] = Query(None),
     from_date: Optional[datetime] = Query(None),
     to_date: Optional[datetime] = Query(None),
+    
+    sort_by: str = Query("created_at"),
+    order: str = Query("desc"),
+
 ):
     logger.info(
         "Admin listing valuations "
-        f"user_id={user_id} country={country_code} "
-        f"category={category} from={from_date} to={to_date}"
+        f"page={params['page']} limit={params['limit']} "
+        f"search={params['search']} user_id={user_id}"
     )
+    
+    if from_date and to_date and from_date > to_date:
+        raise HTTPException(400, "Invalid date range")
     
     query = db.query(ValuationReport)
 
+    if params["search"]:
+        query = query.filter(
+            or_(
+                ValuationReport.valuation_id.ilike(f"%{params['search']}%"),
+                ValuationReport.category.ilike(f"%{params['search']}%"),
+                ValuationReport.country_code.ilike(f"%{params['search']}%"),
+            )
+        )
+
+    # 🔎 FILTERS
     if user_id:
         query = query.filter(ValuationReport.user_id == user_id)
 
@@ -50,26 +73,57 @@ def list_valuations(
 
     if category:
         query = query.filter(
-            ValuationReport.category == category
+            ValuationReport.category.ilike(category)
         )
 
     if from_date:
-        query = query.filter(
-            ValuationReport.created_at >= from_date
-        )
+        query = query.filter(ValuationReport.created_at >= from_date)
 
     if to_date:
-        query = query.filter(
-            ValuationReport.created_at <= to_date
-        )
+        query = query.filter(ValuationReport.created_at <= to_date)
 
-    valuations = query.order_by(
-            ValuationReport.created_at.desc()
-        ).all()
+    total = query.count()
 
-    logger.debug(f"Admin fetched valuations count={len(valuations)}")
+    # 🔃 SORTING
+    
+    ALLOWED_SORT_FIELDS = {
+        "created_at": ValuationReport.created_at,
+        "valuation_id": ValuationReport.valuation_id,
+        "category": ValuationReport.category,
+        "country_code": ValuationReport.country_code,
+    }
 
-    return valuations
+    sort_column = ALLOWED_SORT_FIELDS.get(sort_by)
+    if not sort_column:
+        raise HTTPException(400, "Invalid sort field")
+
+    if order.lower() == "asc":
+        query = query.order_by(sort_column.asc())
+    elif order.lower() == "desc":
+        query = query.order_by(sort_column.desc())
+    else:
+        raise HTTPException(400, "Invalid sort order")
+
+    # 📄 PAGINATION
+    valuations = (
+        query
+        .offset((params["page"] - 1) * params["limit"])
+        .limit(params["limit"])
+        .all()
+    )
+
+    logger.debug(
+        f"Admin fetched valuations count={len(valuations)} total={total}"
+    )
+
+    return {
+        "data": valuations,
+        "pagination": {
+            "page": params["page"],
+            "limit": params["limit"],
+            "total": total,
+        }
+    }
 
 
 @router.get("/valuations/{valuation_id}", response_model=ValuationDetailResponse)
@@ -90,32 +144,55 @@ def get_valuation_details(
     return valuation
 
 
-@router.get("/users/{user_id}/valuations", response_model=List[ValuationResponse])
+@router.get("/users/{user_id}/valuations", response_model=PaginatedResponse[ValuationResponse])
 def get_user_valuations(
     user_id: int,
     db: Session = Depends(get_db),
     _: None = Depends(require_superuser),
+    params : dict = Depends(pagination_params),
 ):
-    logger.info(f"Admin fetching valuations for user_id={user_id}")
+    
+    logger.info(
+        f"Admin fetching valuations user_id={user_id} "
+        f"page={params['page']}"
+    )
 
     user = db.query(User).filter(User.id == user_id).first()
     if not user:
         logger.warning(f"User not found while fetching valuations user_id={user_id}")
         raise HTTPException(404, "User not found")
 
-    valuations = (
+    query = (
         db.query(ValuationReport)
         .filter(ValuationReport.user_id == user_id)
+    )
+
+    if params["search"]:
+        query = query.filter(
+            ValuationReport.valuation_id.ilike(
+                f"%{params['search']}%"
+            )
+        )
+
+    total = query.count()
+
+    valuations = (
+        query
         .order_by(ValuationReport.created_at.desc())
+        .offset((params["page"] - 1) * params["limit"])
+        .limit(params["limit"])
         .all()
     )
 
-    logger.debug(
-        f"Admin fetched valuations for user_id={user_id} count={len(valuations)}"
-    )
-
-    return valuations
-
+    return {
+        "data": valuations,
+        "pagination": {
+            "page": params["page"],
+            "limit": params["limit"],
+            "total": total,
+        }
+    }
+    
 
 @router.delete("/valuations/{valuation_id}/delete")
 def delete_valuation(

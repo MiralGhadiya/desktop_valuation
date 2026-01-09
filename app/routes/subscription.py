@@ -1,14 +1,18 @@
 #app/routes/subscription.py
 
+from typing import Optional
 from sqlalchemy.orm import Session
 from datetime import datetime, timezone
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, Depends, HTTPException, Request, Query
 
 from app.deps import get_db, get_current_user
 
 from app.models import User
 from app.models.subscription import SubscriptionPlan, UserSubscription
 from app.services.exchange_rate_service import get_rate
+
+from app.common import PaginatedResponse
+from app.deps import pagination_params
 
 from app.utils.logger_config import app_logger as logger
 
@@ -22,7 +26,11 @@ def list_plans(
 ):
     
     ip_country = getattr(request.state, "ip_country", None)
-    country = ip_country or current_user.country.country_code
+    country = ip_country or (
+        current_user.country.country_code
+        if current_user.country
+        else "DEFAULT"
+    )
 
     logger.debug(
         f"IP country={ip_country}, "
@@ -47,7 +55,7 @@ def list_plans(
     if not usd_plans:
         return []
 
-    user_currency = current_user.country.currency_code  # or map from country
+    user_currency = current_user.country.currency_code 
     rate = get_rate(db, user_currency)
     if rate is None:
         logger.warning(f"No exchange rate for currency={user_currency}")
@@ -120,52 +128,83 @@ def get_my_active_plans(
     ]
     
     
-@router.get("/plan-history")
+@router.get(
+    "/plan-history",
+    response_model=PaginatedResponse[dict]
+)
 def subscription_history(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
+
+    params: dict = Depends(pagination_params),
+    is_active: Optional[bool] = Query(None),
 ):
-    try:
-        plans = (
-            db.query(UserSubscription)
-            .join(SubscriptionPlan)
-            .filter(UserSubscription.user_id == current_user.id)
-            .order_by(UserSubscription.start_date.desc())
-            .all()
+    logger.info(
+        f"Fetching subscription history user_id={current_user.id} "
+        f"page={params['page']} limit={params['limit']}"
+    )
+
+    query = (
+        db.query(UserSubscription)
+        .join(SubscriptionPlan)
+        .filter(UserSubscription.user_id == current_user.id)
+    )
+
+    # 🔍 SEARCH (plan name)
+    if params["search"]:
+        query = query.filter(
+            SubscriptionPlan.name.ilike(
+                f"%{params['search']}%"
+            )
         )
-    except Exception:
-        logger.exception("Failed to fetch subscription history")
-        raise HTTPException(
-            status_code=500,
-            detail="Could not retrieve subscription history"
+
+    # 🔎 FILTER (active / inactive)
+    if is_active is not None:
+        query = query.filter(
+            UserSubscription.is_active == is_active
         )
-        
+
+    total = query.count()
+
+    subs = (
+        query
+        .order_by(UserSubscription.start_date.desc())
+        .offset((params["page"] - 1) * params["limit"])
+        .limit(params["limit"])
+        .all()
+    )
+
     now = datetime.now(timezone.utc)
 
-    result = []
-    for s in plans:
+    data = []
+    for s in subs:
         end_date = s.end_date
-
         if end_date and end_date.tzinfo is None:
             end_date = end_date.replace(tzinfo=timezone.utc)
 
-        result.append(
-            {
-                "subscription_id": s.id,
-                "plan_name": s.plan.name,
-                "country": s.plan.country_code,
-                "price": s.plan.price,
-                "currency": s.plan.currency,
-                "max_reports": s.plan.max_reports,
-                "reports_used": s.reports_used,
-                "start_date": s.start_date,
-                "end_date": s.end_date,
-                "is_active": s.is_active,
-                "expired": end_date < now if end_date else False,
-                "purchased_on": s.start_date,
-            }
-        )
-    return result
+        data.append({
+            "subscription_id": s.id,
+            "plan_name": s.plan.name,
+            "country": s.plan.country_code,
+            "price": s.plan.price,
+            "currency": s.plan.currency,
+            "max_reports": s.plan.max_reports,
+            "reports_used": s.reports_used,
+            "start_date": s.start_date,
+            "end_date": s.end_date,
+            "is_active": s.is_active,
+            "expired": end_date < now if end_date else False,
+            "purchased_on": s.start_date,
+        })
+
+    return {
+        "data": data,
+        "pagination": {
+            "page": params["page"],
+            "limit": params["limit"],
+            "total": total,
+        }
+    }
 
 
 @router.get("/default")
