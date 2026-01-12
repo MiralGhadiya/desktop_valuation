@@ -13,8 +13,12 @@ from app.services.exchange_rate_service import get_rate
 
 from app.common import PaginatedResponse
 from app.deps import pagination_params
+from app.routes.payment import create_order
+
+from app.utils.date_filters import filter_by_date_range
 
 from app.utils.logger_config import app_logger as logger
+
 
 router = APIRouter(prefix="/subscription", tags=["subscription"])
     
@@ -138,6 +142,9 @@ def subscription_history(
 
     params: dict = Depends(pagination_params),
     is_active: Optional[bool] = Query(None),
+    
+    from_date: Optional[datetime] = Query(None),
+    to_date: Optional[datetime] = Query(None),
 ):
     logger.info(
         f"Fetching subscription history user_id={current_user.id} "
@@ -150,7 +157,6 @@ def subscription_history(
         .filter(UserSubscription.user_id == current_user.id)
     )
 
-    # 🔍 SEARCH (plan name)
     if params["search"]:
         query = query.filter(
             SubscriptionPlan.name.ilike(
@@ -158,11 +164,17 @@ def subscription_history(
             )
         )
 
-    # 🔎 FILTER (active / inactive)
     if is_active is not None:
         query = query.filter(
             UserSubscription.is_active == is_active
         )
+        
+    query = filter_by_date_range(
+        query,
+        UserSubscription.start_date,
+        from_date,
+        to_date,
+    )
 
     total = query.count()
 
@@ -296,3 +308,47 @@ def get_subscription_usage(
         "expires_at": end_date,
         "is_active": subscription.is_active and end_date >= now,
     }
+    
+    
+@router.post("/{subscription_id}/cancel")
+def cancel_my_subscription(
+    subscription_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    sub = db.query(UserSubscription).filter(
+        UserSubscription.id == subscription_id,
+        UserSubscription.user_id == current_user.id,
+        UserSubscription.is_active == True,
+    ).first()
+
+    if not sub:
+        raise HTTPException(404, "Active subscription not found")
+
+    sub.auto_renew = False
+    sub.cancelled_at = datetime.now(timezone.utc)
+
+    db.commit()
+
+    return {
+        "message": "Subscription will cancel at period end",
+        "ends_on": sub.end_date,
+    }
+    
+
+@router.post("/{subscription_id}/renew")
+def renew_subscription(
+    subscription_id: int,
+    request: Request,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    sub = db.query(UserSubscription).filter(
+        UserSubscription.id == subscription_id,
+        UserSubscription.user_id == current_user.id,
+    ).first()
+
+    if not sub:
+        raise HTTPException(404, "Subscription not found")
+
+    return create_order(sub.plan_id, request, db, current_user)

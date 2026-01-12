@@ -16,6 +16,8 @@ from app.schemas import ValuationResponse, ValuationDetailResponse
 from app.common import PaginatedResponse
 from app.deps import pagination_params
 
+from app.utils.date_filters import filter_by_date_range
+
 from app.utils.logger_config import app_logger as logger
 
 
@@ -48,9 +50,6 @@ def list_valuations(
         f"search={params['search']} user_id={user_id}"
     )
     
-    if from_date and to_date and from_date > to_date:
-        raise HTTPException(400, "Invalid date range")
-    
     query = db.query(ValuationReport)
 
     if params["search"]:
@@ -61,7 +60,7 @@ def list_valuations(
                 ValuationReport.country_code.ilike(f"%{params['search']}%"),
             )
         )
-
+    
     # 🔎 FILTERS
     if user_id:
         query = query.filter(ValuationReport.user_id == user_id)
@@ -76,16 +75,15 @@ def list_valuations(
             ValuationReport.category.ilike(category)
         )
 
-    if from_date:
-        query = query.filter(ValuationReport.created_at >= from_date)
-
-    if to_date:
-        query = query.filter(ValuationReport.created_at <= to_date)
+    query = filter_by_date_range(
+            query,
+            ValuationReport.created_at,
+            from_date,
+            to_date,
+        )
 
     total = query.count()
 
-    # 🔃 SORTING
-    
     ALLOWED_SORT_FIELDS = {
         "created_at": ValuationReport.created_at,
         "valuation_id": ValuationReport.valuation_id,

@@ -1,7 +1,7 @@
 import os
 from fastapi import FastAPI, Request
 from app.database import engine, Base
-from app.routes import auth as user_auth, valuation, subscription, payment
+from app.routes import auth as user_auth, valuation, subscription, payment, user_feedback
 from app.routes.admin import (
     auth,
     users,
@@ -9,6 +9,7 @@ from app.routes.admin import (
     user_subscriptions,
     valuations,
     dashboard,
+    feedback
 )
 
 import app.celery_app
@@ -42,6 +43,7 @@ app.include_router(user_auth.router)
 app.include_router(valuation.router)
 app.include_router(subscription.router)
 app.include_router(payment.router)
+app.include_router(user_feedback.router)
 
 app.include_router(auth.router)
 app.include_router(users.router)
@@ -49,6 +51,7 @@ app.include_router(subscription_plans.router)
 app.include_router(user_subscriptions.router)
 app.include_router(valuations.router)
 app.include_router(dashboard.router)
+app.include_router(feedback.router)
 
 
 @app.middleware("http")

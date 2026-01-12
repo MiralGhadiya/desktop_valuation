@@ -3,8 +3,10 @@ import os
 import secrets
 from app.auth import pwd_context
 from sqlalchemy.orm import Session
+
 from dotenv import load_dotenv
 load_dotenv()
+
 from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
 from datetime import datetime, timedelta, timezone

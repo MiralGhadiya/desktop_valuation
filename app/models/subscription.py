@@ -49,6 +49,9 @@ class UserSubscription(Base):
     reports_used = Column(Integer, default=0)
     is_active = Column(Boolean, default=True)
     is_expired = Column(Boolean, default=False)
+    
+    auto_renew = Column(Boolean, default=False)
+    cancelled_at = Column(DateTime, nullable=True)
 
     user = relationship("User")
     plan = relationship("SubscriptionPlan")

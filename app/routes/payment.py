@@ -195,6 +195,12 @@ def verify_payment(
 
         if sub.payment_status == "PAID" and sub.is_active:
             return {"message": "Already activated"}
+        
+        if sub.start_date and sub.end_date:
+            sub.end_date += timedelta(days=30)
+        else:
+            sub.start_date = now
+            sub.end_date = now + timedelta(days=30)
 
         now = datetime.now(timezone.utc)
         

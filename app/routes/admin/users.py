@@ -15,6 +15,8 @@ from app.services import auth_service
 from app.schemas import AdminUserResponse, AdminResetPassword
 from app.common import PaginatedResponse
 
+from app.utils.date_filters import filter_by_date_range
+
 from app.utils.logger_config import app_logger as logger
 
 
@@ -38,12 +40,9 @@ def list_users(
     country_id: Optional[int] = Query(None),
     is_active: Optional[bool] = Query(None),
     
-    verified_from: Optional[datetime] = Query(
-        None, description="Email verified from this date (UTC)"
-    ),
-    verified_to: Optional[datetime] = Query(
-        None, description="Email verified until this date (UTC)"
-    ),
+    verified_from: Optional[datetime] = Query(None),
+    verified_to: Optional[datetime] = Query(None),
+    
     verified_within_days: Optional[int] = Query(
         None, ge=1, le=365, description="Email verified within last N days"
     ),
@@ -80,22 +79,30 @@ def list_users(
 
     if country_id:
         query = query.filter(User.country_id == country_id)
-        
-    now = datetime.now(timezone.utc)
 
     if verified_within_days:
+        now = datetime.now(timezone.utc)
         start_date = now - timedelta(days=verified_within_days)
+
         query = query.filter(
             User.email_verified_at.isnot(None),
-            User.email_verified_at >= start_date
+            User.email_verified_at >= start_date,
         )
 
-    if verified_from:
-        query = query.filter(User.email_verified_at >= verified_from)
+    else:
+        # apply range only if at least one bound exists
+        if verified_from or verified_to:
+            query = query.filter(
+                User.email_verified_at.isnot(None)
+            )
 
-    if verified_to:
-        query = query.filter(User.email_verified_at <= verified_to)
-        
+            query = filter_by_date_range(
+                query,
+                User.email_verified_at,
+                verified_from,
+                verified_to,
+            )
+
     # 📊 TOTAL COUNT
     total = query.count()
 

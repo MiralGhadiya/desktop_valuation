@@ -3,13 +3,13 @@
 import os
 import uuid
 from typing import Optional
+from datetime import datetime
 from fastapi import Request
 from sqlalchemy import or_
 from app.database import get_db
 from sqlalchemy.orm import Session
 from app.common import PaginatedResponse
 from fastapi.responses import FileResponse
-from datetime import datetime, timezone, timedelta
 
 from fastapi import APIRouter, HTTPException, UploadFile, File, Depends, Form, Query
 
@@ -27,6 +27,7 @@ from app.services.subscription_service import enforce_subscription
 
 from app.models import User, ValuationReport
 from app.models.valuation import DesktopValuationForm, ValuationJob, desktop_valuation_form_dep
+from app.utils.date_filters import filter_by_date_range
 
 from app.utils.logger_config import app_logger as logger
 
@@ -263,10 +264,10 @@ async def create_valuation_form(
 def my_valuations(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
-
     params: dict = Depends(pagination_params),
-    category: Optional[str] = Query(None)
-
+    category: Optional[str] = Query(None),
+    from_date: Optional[datetime] = Query(None),
+    to_date: Optional[datetime] = Query(None),
 ):
     logger.info(
         f"Fetching user valuations user_id={current_user.id} "
@@ -297,6 +298,13 @@ def my_valuations(
                 ),
             )
         )
+        
+    query = filter_by_date_range(
+        query,
+        ValuationReport.created_at,
+        from_date,
+        to_date,
+    )
 
     total = query.count()
 

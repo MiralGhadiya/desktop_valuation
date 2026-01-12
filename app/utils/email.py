@@ -1,3 +1,5 @@
+#app/utils/email.py
+
 import os
 import smtplib
 from email.mime.text import MIMEText
@@ -11,6 +13,7 @@ load_dotenv()
 
 EMAIL_USER = os.getenv("EMAIL_USER")
 EMAIL_PASSWORD = os.getenv("EMAIL_PASSWORD")
+ADMIN_FEEDBACK_EMAILS = (os.getenv("ADMIN_FEEDBACK_EMAILS", "").split(","))
 
 SMTP_URL = "smtp.gmail.com"
 
@@ -119,3 +122,83 @@ def send_subscription_expiry_email(to_email: str, plan_name: str, expiry_date):
     except Exception:
         logger.exception(f"Failed to send expiry email to={to_email}")
         raise
+
+
+def send_admin_feedback_email(feedback, user):
+    logger.info(
+        f"Sending admin feedback email feedback_id={feedback.id}"
+    )
+
+    try:
+        body = f"""
+        New feedback received
+
+        User ID: {user.id}
+        Feedback ID: {feedback.id}
+        Type: {feedback.type}
+        Rating: {feedback.rating or "N/A"}
+
+        Subject:
+        {feedback.subject}
+
+        Message:
+        {feedback.message}
+
+        Status: {feedback.status}
+        """
+
+        msg = MIMEText(body)
+        msg["Subject"] = f"[Feedback] {feedback.type} - {feedback.subject}"
+        msg["From"] = EMAIL_USER
+        msg["To"] = ", ".join(ADMIN_FEEDBACK_EMAILS)
+
+        with smtplib.SMTP_SSL(SMTP_URL, 465) as server:
+            server.login(EMAIL_USER, EMAIL_PASSWORD)
+            server.send_message(msg)
+
+        logger.info(
+            f"Admin feedback email sent feedback_id={feedback.id}"
+        )
+
+    except Exception:
+        logger.exception(
+            f"Failed sending admin feedback email feedback_id={feedback.id}"
+        )
+        
+
+def send_feedback_reply_email(to_email: str, feedback_id: int, reply: str):
+    logger.info(
+        f"Sending feedback reply email feedback_id={feedback_id}"
+    )
+
+    try:
+        body = f"""
+        Hello,
+
+        Our support team has replied to your feedback.
+
+        Feedback ID: {feedback_id}
+
+        Reply:
+        {reply}
+
+        Thank you for helping us improve.
+        """
+
+        msg = MIMEText(body)
+        msg["Subject"] = "Update on your feedback"
+        msg["From"] = EMAIL_USER
+        msg["To"] = to_email
+
+        with smtplib.SMTP_SSL(SMTP_URL, 465) as server:
+            server.login(EMAIL_USER, EMAIL_PASSWORD)
+            server.send_message(msg)
+
+        logger.info(
+            f"Feedback reply email sent feedback_id={feedback_id}"
+        )
+
+    except Exception:
+        logger.exception(
+            f"Failed sending feedback reply email feedback_id={feedback_id}"
+        )

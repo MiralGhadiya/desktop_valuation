@@ -1,6 +1,6 @@
 from datetime import datetime
-from typing import Optional, List
-from pydantic import BaseModel, EmailStr
+from typing import Optional, List, Literal
+from pydantic import BaseModel, EmailStr, Field
 
 
 class UserBase(BaseModel):
@@ -185,3 +185,54 @@ class ValuationDetailResponse(ValuationResponse):
     user_fields: dict
     ai_response: dict
     report_context: dict
+    
+
+class FeedbackCreate(BaseModel):
+    type: Literal["GENERAL", "VALUATION", "PAYMENT", "SUBSCRIPTION"]
+    subject: str
+    message: str
+    rating: Optional[int] = Field(None, ge=1, le=5)
+    valuation_id: Optional[str] = None
+    subscription_id: Optional[int] = None
+    
+
+class FeedbackResponse(BaseModel):
+    id: int
+    type: str
+    subject: str
+    message: str
+    rating: Optional[int]
+    status: str
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+class FeedbackMessageCreate(BaseModel):
+    message: str
+
+class FeedbackMessageResponse(BaseModel):
+    id: int
+    sender: str
+    message: str
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+       
+        
+class AdminFeedbackAction(BaseModel):
+    status: Optional[
+        Literal["OPEN", "IN_PROGRESS", "RESOLVED", "CLOSED"]
+    ] = None
+
+    reply: Optional[str] = None
+    notify_user: bool = False
+    admin_note: Optional[str] = None
+
+
+class FeedbackUpdate(BaseModel):
+    subject: Optional[str] = Field(None, max_length=255)
+    message: Optional[str] = None
+    rating: Optional[int] = Field(None, ge=1, le=5)

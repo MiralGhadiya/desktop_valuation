@@ -20,7 +20,6 @@
 
 
 
-
 1. celery -A app.celery_app:celery_app worker -l info --pool=solo
 2. celery -A app.celery_app:celery_app beat -l info
 
@@ -28,6 +27,8 @@
 ---------- Pagination in all get apis and filter and search in all get apis ---------------------
 
 ---- In admin/user-subscription start from date filteration is not working ------
+
+------------------------ Add new relevant apis and check from-to date logic and check whole flow ------------------------------
 
 
 
@@ -214,3 +215,18 @@ FORECAST_SCHEMA = """
           "value_in_12_months": 0
         }
       """
+
+
+
+
+7️⃣ Optional (Recommended Enhancements)
+
+🔔 Email admin on new feedback
+
+📊 Admin dashboard widget:
+
+Open feedback count
+
+Avg rating
+
+💬 Admin replies (table: feedback_messages)

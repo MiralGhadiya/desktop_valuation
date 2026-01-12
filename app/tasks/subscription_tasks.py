@@ -20,3 +20,4 @@ def send_expiry_reminders_task():
         return send_expiry_reminders(db)
     finally:
         db.close()
+     

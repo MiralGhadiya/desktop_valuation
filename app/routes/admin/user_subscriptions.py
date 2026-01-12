@@ -14,8 +14,9 @@ from app.schemas import UpdateSubscription, UserSubscriptionResponse, AssignSubs
 
 from app.common import PaginatedResponse
 from app.deps import pagination_params
-from app.utils.logger_config import app_logger as logger
+from app.utils.date_filters import filter_by_date_range
 
+from app.utils.logger_config import app_logger as logger
 
 router = APIRouter(
     prefix="/admin",
@@ -128,30 +129,26 @@ def list_all_user_subscriptions(
             filters.plan_country_code.upper()
         )
 
-    if filters.start_from:
-        query = query.filter(
-            UserSubscription.start_date >= filters.start_from
-        )
+    query = filter_by_date_range(
+        query,
+        UserSubscription.start_date,
+        filters.start_from,
+        filters.start_to,
+    )
 
-    if filters.start_to:
-        query = query.filter(
-            UserSubscription.start_date <= filters.start_to
-        )
-
-    if filters.end_from:
-        query = query.filter(
-            UserSubscription.end_date >= filters.end_from
-        )
-
-    if filters.end_to:
-        query = query.filter(
-            UserSubscription.end_date <= filters.end_to
-        )
-        
-    now = datetime.now(timezone.utc)
+    # expiry date
+    query = filter_by_date_range(
+        query,
+        UserSubscription.end_date,
+        filters.end_from,
+        filters.end_to,
+    )
 
     if filters.purchased_within_days:
-        start_date = now - timedelta(days=filters.purchased_within_days)
+        now = datetime.now(timezone.utc)
+        start_date = now - timedelta(
+            days=filters.purchased_within_days
+        )
         query = query.filter(
             UserSubscription.start_date >= start_date
         )
@@ -188,7 +185,7 @@ def list_all_user_subscriptions(
             "page": params["page"],
             "limit": params["limit"],
             "total": total,
-        }
+        },
     }
     
 

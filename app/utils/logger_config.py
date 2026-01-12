@@ -1,35 +1,39 @@
-# app/utils/logger_config.py
 import os
 import logging
-
-# from datetime import datetime
-from logging.handlers import TimedRotatingFileHandler
+import queue
+from logging.handlers import (
+    TimedRotatingFileHandler,
+    QueueHandler,
+    QueueListener,
+)
 
 LOG_DIR = os.path.join(os.path.dirname(__file__), "../logs")
 os.makedirs(LOG_DIR, exist_ok=True)
-
-# TODAY = datetime.now().strftime("%Y-%m-%d")
-# LOG_FILE = os.path.join(LOG_DIR, f"{TODAY}.log")
 
 LOG_FILE = os.path.join(LOG_DIR, "app.log")
 
 logger = logging.getLogger("app_logger")
 logger.setLevel(logging.DEBUG)
 
+logger.handlers.clear()
+logger.propagate = False
+
+log_queue = queue.Queue(-1)
+
+queue_handler = QueueHandler(log_queue)
+logger.addHandler(queue_handler)
+
+
 file_handler = TimedRotatingFileHandler(
     LOG_FILE,
-    when="midnight",       # rotate at midnight
-    interval=1,            # every 1 day
-    backupCount=365,        # keep 365 days of logs
-    encoding="utf-8"
+    when="midnight",
+    interval=1,
+    backupCount=30,     # ✅ last 30 days
+    encoding="utf-8",
 )
 
 console_handler = logging.StreamHandler()
 console_handler.setLevel(logging.INFO)
-try:
-    console_handler.stream.reconfigure(encoding="utf-8")
-except Exception:
-    pass
 
 formatter = logging.Formatter(
     "%(asctime)s | %(levelname)s | %(name)s | %(message)s",
@@ -39,9 +43,14 @@ formatter = logging.Formatter(
 file_handler.setFormatter(formatter)
 console_handler.setFormatter(formatter)
 
-# 🔑 CRITICAL FIX
-logger.handlers.clear()
-logger.addHandler(file_handler)
-logger.addHandler(console_handler)
+
+listener = QueueListener(
+    log_queue,
+    file_handler,
+    console_handler,
+    respect_handler_level=True,
+)
+
+listener.start()
 
 app_logger = logger

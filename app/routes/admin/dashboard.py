@@ -8,6 +8,7 @@ from datetime import datetime, timedelta, timezone
 from app.deps import get_db, require_superuser
 
 from app.models import User
+from app.models.feedback import Feedback
 from app.models.subscription import SubscriptionPlan, UserSubscription
 from app.models.valuation import ValuationReport
 
@@ -234,3 +235,30 @@ def dashboard_countries(
     except Exception:
         logger.exception("Dashboard country-wise stats failed")
         raise HTTPException(500, "Failed to load country-wise stats")
+    
+
+
+@router.get("/feedback")
+def feedback_stats(
+    db: Session = Depends(get_db),
+    _: None = Depends(require_superuser),
+):
+    total = db.query(func.count(Feedback.id)).scalar()
+
+    open_count = (
+        db.query(func.count(Feedback.id))
+        .filter(Feedback.status == "OPEN")
+        .scalar()
+    )
+
+    avg_rating = (
+        db.query(func.avg(Feedback.rating))
+        .filter(Feedback.rating.isnot(None))
+        .scalar()
+    )
+
+    return {
+        "total_feedback": total,
+        "open_feedback": open_count,
+        "avg_rating": round(float(avg_rating), 2) if avg_rating is not None else None,
+    }

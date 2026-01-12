@@ -2,7 +2,6 @@
 
 from datetime import datetime
 from datetime import datetime
-from locale import currency
 from typing import Optional
 from sqlalchemy.orm import Session
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -13,6 +12,7 @@ from app.schemas import SubscriptionPlanResponse, SubscriptionPlanCreate, Subscr
 
 from app.common import PaginatedResponse
 from app.deps import pagination_params
+from app.utils.date_filters import filter_by_date_range
 
 from app.utils.logger_config import app_logger as logger
 
@@ -122,22 +122,19 @@ def list_subscription_plans(
                 SubscriptionPlan.per_report_price.is_(None)
             )
 
-    if filters.created_from:
-        query = query.filter(
-            SubscriptionPlan.created_at >= filters.created_from
-        )
-
-    if filters.created_to:
-        query = query.filter(
-            SubscriptionPlan.created_at <= filters.created_to
-        )
-
     if filters.category:
         query = query.filter(
             SubscriptionPlan.allowed_categories.contains(
                 [filters.category]
             )
         )
+        
+    query = filter_by_date_range(
+        query,
+        SubscriptionPlan.created_at,
+        filters.created_from,
+        filters.created_to,
+    )
 
     total = query.count()
 
