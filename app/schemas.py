@@ -113,7 +113,6 @@ class SubscriptionPlanCreate(BaseModel):
     currency: str
     max_reports: Optional[int] = None
     allowed_categories: List[str]
-    per_report_price: Optional[int] = None
 
 
 class SubscriptionPlanUpdate(BaseModel):
@@ -122,7 +121,6 @@ class SubscriptionPlanUpdate(BaseModel):
     currency: Optional[str] = None
     max_reports: Optional[int] = None
     allowed_categories: Optional[List[str]] = None
-    per_report_price: Optional[int] = None
 
 
 class SubscriptionPlanResponse(BaseModel):
@@ -133,7 +131,6 @@ class SubscriptionPlanResponse(BaseModel):
     currency: str
     max_reports: Optional[int]
     allowed_categories: List[str]
-    per_report_price: Optional[int]
     is_active: bool
 
     class Config:
@@ -158,8 +155,8 @@ class UserSubscriptionResponse(BaseModel):
     plan_id: int
     plan_name: str
     pricing_country_code: str
-    start_date: datetime
-    end_date: datetime
+    start_date: Optional[datetime]
+    end_date: Optional[datetime]
     reports_used: int
     is_active: bool
 

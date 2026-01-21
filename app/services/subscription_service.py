@@ -9,6 +9,13 @@ from app.models.subscription import SubscriptionPlan, UserSubscription
 
 from app.utils.logger_config import app_logger as logger
 
+def to_utc_aware(dt):
+    if dt is None:
+        return None
+    if dt.tzinfo is None:
+        return dt.replace(tzinfo=timezone.utc)
+    return dt.astimezone(timezone.utc)
+
 
 def get_active_subscription(
     db: Session,
@@ -40,11 +47,10 @@ def enforce_subscription(
     db: Session,
     user_id: int,
     subscription_id: int,
-    category: str,
 ):
     logger.info(
         f"Enforcing subscription user_id={user_id} "
-        f"subscription_id={subscription_id} category={category}"
+        f"subscription_id={subscription_id}"
     )
 
     sub = (
@@ -61,14 +67,24 @@ def enforce_subscription(
         raise HTTPException(403, "Subscription not found")
 
     if sub.is_expired:
-        logger.warning("Subscription has expired.")
-        raise HTTPException(403,"Subscription has expired. Please buy one to proceed further!")
+        raise HTTPException(
+            403,
+            "Subscription has expired. Please buy one to proceed further!"
+        )
 
     if not sub.is_active:
         raise HTTPException(403, "Subscription is inactive")
 
-    now = datetime.utcnow()
-    if sub.start_date > now or sub.end_date < now:
+    # ✅ Normalize DB datetimes
+    start_date = to_utc_aware(sub.start_date)
+    end_date = to_utc_aware(sub.end_date)
+    now = datetime.now(timezone.utc)
+
+    if start_date > now or end_date < now:
+        logger.warning(
+            f"Subscription time invalid | "
+            f"start={start_date} end={end_date} now={now}"
+        )
         raise HTTPException(403, "Subscription is not valid at this time")
 
     plan = sub.plan
@@ -102,7 +118,7 @@ def expire_subscriptions(db: Session) -> int:
     try:
         print("working........")
 
-        now = datetime.utcnow()
+        now = datetime.now(timezone.utc)
 
         subs = (
             db.query(UserSubscription)
@@ -132,7 +148,7 @@ def expire_subscriptions(db: Session) -> int:
 
 
 def send_expiry_reminders(db: Session):
-    today = datetime.utcnow().date()
+    today = datetime.now(timezone.utc).date()
     sent = 0
 
     logger.info(f"[EXPIRY REMINDER] Job started | today={today}")

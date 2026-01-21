@@ -1,4 +1,6 @@
 #app/routers/user_feedback.py
+
+from uuid import UUID
 from sqlalchemy import or_
 from typing import Optional
 from sqlalchemy.orm import Session
@@ -117,7 +119,7 @@ def my_feedback(
 
 @router.get("/{feedback_id}", response_model=FeedbackResponse)
 def get_my_feedback_by_id(
-    feedback_id: int,
+    feedback_id: UUID,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
@@ -138,7 +140,7 @@ def get_my_feedback_by_id(
 
 @router.patch("/update/{feedback_id}", response_model=FeedbackResponse)
 def update_my_feedback(
-    feedback_id: int,
+    feedback_id: UUID,
     data: FeedbackUpdate,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
@@ -173,7 +175,7 @@ def update_my_feedback(
 
 @router.post("/{feedback_id}/messages")
 def user_reply_feedback(
-    feedback_id: int,
+    feedback_id: UUID,
     data: FeedbackMessageCreate,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),

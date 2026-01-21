@@ -1,7 +1,7 @@
 # app/tasks/valuation_tasks.py
 
 from app.celery_app import celery_app
-from app.database import SessionLocal
+from app.database.db import SessionLocal
 from app.models.valuation import ValuationJob
 from app.services.valuation_service import save_valuation_report
 from app.services.subscription_service import increment_usage
@@ -15,9 +15,9 @@ from app.utils.logger_config import app_logger as logger
 
 @celery_app.task(
     bind=True,
-    autoretry_for=(Exception,),
-    retry_backoff=15,
-    retry_kwargs={"max_retries": 3},
+    autoretry_for=(RuntimeError,),
+    retry_backoff=5,
+    retry_kwargs={"max_retries": 2},
 )
 def process_valuation_job(self, job_id: str):
     db = SessionLocal()

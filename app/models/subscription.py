@@ -5,13 +5,15 @@ from sqlalchemy.orm import relationship
 from sqlalchemy import Column, Integer, String, Boolean, DateTime, ForeignKey
 from sqlalchemy.dialects.postgresql import JSONB
 
-from app.database import Base
+from sqlalchemy.dialects.postgresql import UUID
+from app.database.mixins import UUIDPrimaryKeyMixin
+
+from app.database.db import Base
 
 
-class SubscriptionPlan(Base):
+class SubscriptionPlan(UUIDPrimaryKeyMixin, Base):
     __tablename__ = "subscription_plans"
 
-    id = Column(Integer, primary_key=True, index=True)
     name = Column(String, nullable=False)              
     country_code = Column(String, nullable=False, index=True)  
 
@@ -19,20 +21,17 @@ class SubscriptionPlan(Base):
     currency = Column(String, nullable=False)           
 
     max_reports = Column(Integer, nullable=True)
-    allowed_categories = Column(JSONB, nullable=False)  
 
-    per_report_price = Column(Integer, nullable=True)
     is_active = Column(Boolean, default=True)
 
     created_at = Column(DateTime, default=datetime.utcnow)
 
 
-class UserSubscription(Base):
+class UserSubscription(UUIDPrimaryKeyMixin, Base):
     __tablename__ = "user_subscriptions"
 
-    id = Column(Integer, primary_key=True, index=True)
-    user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
-    plan_id = Column(Integer, ForeignKey("subscription_plans.id"), nullable=False, index=True)
+    user_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False, index=True)
+    plan_id = Column(UUID(as_uuid=True), ForeignKey("subscription_plans.id"), nullable=False, index=True)
     
     pricing_country_code = Column(String, nullable=False)  
     ip_country_code = Column(String, nullable=True)
@@ -43,8 +42,8 @@ class UserSubscription(Base):
     razorpay_signature = Column(String, nullable=True)
     payment_status = Column(String, default="CREATED")  
     
-    start_date = Column(DateTime, nullable=True)
-    end_date = Column(DateTime, nullable=True)
+    start_date = Column(DateTime(timezone=True), nullable=True)
+    end_date = Column(DateTime(timezone=True), nullable=True)
 
     reports_used = Column(Integer, default=0)
     is_active = Column(Boolean, default=True)

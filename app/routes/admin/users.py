@@ -1,5 +1,6 @@
 #app/router/admin/users.py
 
+from uuid import UUID
 from sqlalchemy import or_
 from typing import Optional
 from sqlalchemy.orm import Session
@@ -147,7 +148,7 @@ def list_users(
 
 @router.get("/{user_id}", response_model=AdminUserResponse)
 def get_user(
-    user_id: int,
+    user_id: UUID,
     db: Session = Depends(get_db),
     _: User = Depends(require_superuser),
 ):
@@ -166,7 +167,7 @@ def get_user(
 
 @router.patch("/{user_id}/toggle-active")
 def toggle_user_active(
-    user_id: int,
+    user_id: UUID,
     db: Session = Depends(get_db),
     _: User = Depends(require_superuser),
 ):
@@ -200,7 +201,7 @@ def toggle_user_active(
 
 @router.post("/{user_id}/logout")
 def force_logout_user(
-    user_id: int,
+    user_id: UUID,
     db: Session = Depends(get_db),
     _: User = Depends(require_superuser),
 ):
@@ -222,7 +223,7 @@ def force_logout_user(
 # ----- MANUAL EMAIL VERIFY -----
 @router.post("/{user_id}/verify-email")
 def verify_user_email(
-    user_id: int,
+    user_id: UUID,
     db: Session = Depends(get_db),
     _: User = Depends(require_superuser),
 ):
@@ -254,7 +255,7 @@ def verify_user_email(
 
 @router.post("/{user_id}/reset-password")
 def admin_reset_password(
-    user_id: int,
+    user_id: UUID,
     data: AdminResetPassword,
     db: Session = Depends(get_db),
     _: User = Depends(require_superuser),

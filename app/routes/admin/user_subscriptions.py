@@ -1,5 +1,6 @@
 #app/routes/admin/user_subscriptions.py
 
+from uuid import UUID
 from typing import Optional
 from sqlalchemy.orm import Session
 from datetime import datetime, timedelta, timezone
@@ -191,7 +192,7 @@ def list_all_user_subscriptions(
 
 @router.get("/users/{user_id}/subscriptions", response_model=PaginatedResponse[UserSubscriptionResponse])
 def get_user_subscriptions(
-    user_id: int,
+    user_id: UUID,
     db: Session = Depends(get_db),
     _: None = Depends(require_superuser),
     
@@ -292,7 +293,7 @@ def get_user_subscriptions(
 
 @router.post("/users/{user_id}/assign-subscription", response_model=UserSubscriptionResponse)
 def assign_subscription_to_user(
-    user_id: int,
+    user_id: UUID,
     data: AssignSubscription,
     db: Session = Depends(get_db),
     _: None = Depends(require_superuser),
@@ -359,7 +360,7 @@ def assign_subscription_to_user(
 
 @router.patch("/user-subscriptions/{subscription_id}")
 def update_user_subscription(
-    subscription_id: int,
+    subscription_id: UUID,
     data: UpdateSubscription,
     db: Session = Depends(get_db),
     _: None = Depends(require_superuser),
@@ -405,7 +406,7 @@ def update_user_subscription(
 
 @router.post("/user-subscriptions/{subscription_id}/cancel")
 def cancel_subscription(
-    subscription_id: int,
+    subscription_id: UUID,
     db: Session = Depends(get_db),
     _: None = Depends(require_superuser),
 ):

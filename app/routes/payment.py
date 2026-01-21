@@ -2,6 +2,7 @@
 
 import os
 import razorpay
+from uuid import UUID
 from dotenv import load_dotenv
 from sqlalchemy.orm import Session
 from datetime import datetime, timedelta, timezone
@@ -49,7 +50,7 @@ def _expire_existing_active_subs(db: Session, user_id: int, now: datetime):
 @router.post("/create-order/{plan_id}")
 
 def create_order(
-    plan_id: int,
+    plan_id: UUID,
     request: Request,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
@@ -163,27 +164,18 @@ def create_order(
         raise HTTPException(500, "Unable to create payment order")
 
         
-
 @router.post("/verify")
 def verify_payment(
     data: dict,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    """
-    Frontend calls this after Razorpay checkout success.
-    Still keep webhook for ultimate truth.
-    """
     try:
-        try:
-            client.utility.verify_payment_signature({
-                "razorpay_order_id": data["razorpay_order_id"],
-                "razorpay_payment_id": data["razorpay_payment_id"],
-                "razorpay_signature": data["razorpay_signature"],
-            })
-        except SignatureVerificationError:
-            logger.warning("Invalid Razorpay signature")
-            raise HTTPException(400, "Invalid payment signature")
+        client.utility.verify_payment_signature({
+            "razorpay_order_id": data["razorpay_order_id"],
+            "razorpay_payment_id": data["razorpay_payment_id"],
+            "razorpay_signature": data["razorpay_signature"],
+        })
 
         sub = db.query(UserSubscription).filter(
             UserSubscription.razorpay_order_id == data["razorpay_order_id"],
@@ -195,38 +187,25 @@ def verify_payment(
 
         if sub.payment_status == "PAID" and sub.is_active:
             return {"message": "Already activated"}
-        
-        if sub.start_date and sub.end_date:
-            sub.end_date += timedelta(days=30)
-        else:
-            sub.start_date = now
-            sub.end_date = now + timedelta(days=30)
 
+        # ✅ DEFINE NOW FIRST
         now = datetime.now(timezone.utc)
-        
-        try:
-            _expire_existing_active_subs(db, current_user.id, now)
 
-            sub.razorpay_payment_id = data["razorpay_payment_id"]
-            sub.razorpay_signature = data["razorpay_signature"]
-            sub.payment_status = "PAID"
-            sub.is_active = True
-            sub.is_expired = False
-            sub.start_date = now
-            sub.end_date = now + timedelta(days=30)
+        # ✅ Expire old subscriptions
+        _expire_existing_active_subs(db, current_user.id, now)
 
-            db.commit() 
-        except Exception:
-            db.rollback()
-            logger.exception("Failed expiring old subscriptions")
-            raise HTTPException(500, "Payment processing error")
+        # ✅ ACTIVATE THIS SUBSCRIPTION
+        sub.razorpay_payment_id = data["razorpay_payment_id"]
+        sub.razorpay_signature = data["razorpay_signature"]
+        sub.payment_status = "PAID"
+        sub.is_active = True
+        sub.is_expired = False
+        sub.start_date = now
+        sub.end_date = now + timedelta(days=30)
+
+        db.commit()
 
         return {"message": "Payment successful & subscription activated"}
-    
-    except HTTPException:
-            raise
 
-    except Exception:
-        db.rollback()
-        logger.exception("Payment verification failed")
-        raise HTTPException(500, "Payment processing error")
+    except SignatureVerificationError:
+        raise HTTPException(400, "Invalid payment signature")

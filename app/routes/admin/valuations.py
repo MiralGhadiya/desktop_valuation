@@ -1,5 +1,6 @@
 # app/router/admin/valuations.py
 
+from uuid import UUID
 from datetime import datetime
 from typing import Optional
 from sqlalchemy.orm import Session
@@ -144,7 +145,7 @@ def get_valuation_details(
 
 @router.get("/users/{user_id}/valuations", response_model=PaginatedResponse[ValuationResponse])
 def get_user_valuations(
-    user_id: int,
+    user_id: UUID,
     db: Session = Depends(get_db),
     _: None = Depends(require_superuser),
     params : dict = Depends(pagination_params),

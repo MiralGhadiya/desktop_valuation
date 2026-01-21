@@ -1,19 +1,20 @@
 # app/models/user.py
-
+import uuid
 from sqlalchemy.orm import relationship
 from sqlalchemy import Column, Integer, String, Boolean, DateTime, ForeignKey
+from sqlalchemy.dialects.postgresql import UUID
+from app.database.mixins import UUIDPrimaryKeyMixin
 
-from app.database import Base
+from app.database.db import Base
 
 
-class User(Base):
+class User(UUIDPrimaryKeyMixin, Base):
     __tablename__ = "users"
-
-    id = Column(Integer, primary_key=True, index=True)
+    
     email = Column(String, unique=True, index=True, nullable=True)
     username = Column(String, index=True, nullable=False)
     mobile_number = Column(String, unique=True, index=True, nullable=False)
-    country_id = Column(Integer, ForeignKey("countries.id"))
+    country_id = Column(UUID(as_uuid=True), ForeignKey("countries.id"))
     hashed_password = Column(String, nullable=False)
 
     is_active = Column(Boolean, default=True)

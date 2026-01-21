@@ -1,15 +1,17 @@
 #app/models/country.py
 
+import uuid
 from sqlalchemy.orm import relationship
 from sqlalchemy import Column, Integer, String
+from sqlalchemy.dialects.postgresql import UUID
+from app.database.mixins import UUIDPrimaryKeyMixin
 
-from app.database import Base
+from app.database.db import Base
 
 
-class Country(Base):
+class Country(UUIDPrimaryKeyMixin, Base):
     __tablename__ = "countries"
 
-    id = Column(Integer, primary_key=True, index=True)
     name = Column(String, nullable=False)
     country_code = Column(String, index=True)  # IN, US
     dial_code = Column(String)

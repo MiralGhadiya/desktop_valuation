@@ -1,5 +1,6 @@
 #app/routes/subscription.py
 
+from uuid import UUID
 from typing import Optional
 from sqlalchemy.orm import Session
 from datetime import datetime, timezone
@@ -264,7 +265,7 @@ def get_default_subscription(
 
 @router.get("/{subscription_id}/usage")
 def get_subscription_usage(
-    subscription_id: int,
+    subscription_id: UUID,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
@@ -312,7 +313,7 @@ def get_subscription_usage(
     
 @router.post("/{subscription_id}/cancel")
 def cancel_my_subscription(
-    subscription_id: int,
+    subscription_id: UUID,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
@@ -338,7 +339,7 @@ def cancel_my_subscription(
 
 @router.post("/{subscription_id}/renew")
 def renew_subscription(
-    subscription_id: int,
+    subscription_id: UUID,
     request: Request,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),

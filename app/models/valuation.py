@@ -1,5 +1,6 @@
 #app/models/valuation.py
 
+import uuid
 from fastapi import Form   
 from typing import Optional 
 from datetime import datetime
@@ -8,32 +9,33 @@ from sqlalchemy.orm import relationship
 from pydantic import BaseModel, EmailStr
 from sqlalchemy import Column, Integer, String, DateTime, JSON, ForeignKey
 
-from app.database import Base
+from sqlalchemy.dialects.postgresql import UUID
+from app.database.mixins import UUIDPrimaryKeyMixin
+
+from app.database.db import Base
 
 
-class ValuationReport(Base):
+class ValuationReport(UUIDPrimaryKeyMixin, Base):
     __tablename__ = "valuation_reports"
-
-    id = Column(Integer, primary_key=True, index=True)
+    
     valuation_id = Column(String, unique=True, index=True, nullable=False)
-    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    user_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
     user = relationship("User")
     category = Column(String, nullable=False)    
     country_code = Column(String, nullable=False)  
     created_at = Column(DateTime, default=datetime.utcnow)
     user_fields = Column(JSON, nullable=False)
     ai_response = Column(JSON, nullable=False)
-    subscription_id = Column(Integer, ForeignKey("user_subscriptions.id"), nullable=False)
+    subscription_id = Column(UUID(as_uuid=True), ForeignKey("user_subscriptions.id"), nullable=False)
     report_context = Column(JSON, nullable=False)
     pdf_path = Column(String, nullable=False)
     
     
-class ValuationJob(Base):
+class ValuationJob(UUIDPrimaryKeyMixin,Base):
     __tablename__ = "valuation_jobs"
 
-    id = Column(String, primary_key=True)
-    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
-    subscription_id = Column(Integer, nullable=False)
+    user_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
+    subscription_id = Column(UUID(as_uuid=True), nullable=False)
     category = Column(String, nullable=False)
     country_code = Column(String(5), nullable=False)
 

@@ -1,5 +1,6 @@
 #app/routes/admin/subscription_plans.py
 
+from uuid import UUID
 from datetime import datetime
 from datetime import datetime
 from typing import Optional
@@ -38,8 +39,6 @@ class SubscriptionPlanFilters:
 
         currency: Optional[str] = Query(None),
 
-        has_per_report_price: Optional[bool] = Query(None),
-
         created_from: Optional[datetime] = Query(None),
         created_to: Optional[datetime] = Query(None),
 
@@ -52,7 +51,6 @@ class SubscriptionPlanFilters:
         self.min_reports = min_reports
         self.max_reports = max_reports
         self.currency = currency
-        self.has_per_report_price = has_per_report_price
         self.created_from = created_from
         self.created_to = created_to
         self.category = category
@@ -112,16 +110,6 @@ def list_subscription_plans(
             SubscriptionPlan.max_reports <= filters.max_reports
         )
 
-    if filters.has_per_report_price is not None:
-        if filters.has_per_report_price:
-            query = query.filter(
-                SubscriptionPlan.per_report_price.isnot(None)
-            )
-        else:
-            query = query.filter(
-                SubscriptionPlan.per_report_price.is_(None)
-            )
-
     if filters.category:
         query = query.filter(
             SubscriptionPlan.allowed_categories.contains(
@@ -160,7 +148,7 @@ def list_subscription_plans(
     
 @router.get("/{plan_id}", response_model=SubscriptionPlanResponse)
 def get_subscription_plan(
-    plan_id: int,
+    plan_id: UUID,
     db: Session = Depends(get_db),
     _: None = Depends(require_superuser),
 ):
@@ -194,8 +182,6 @@ def create_subscription_plan(
         price=data.price,
         currency=data.currency.upper(),
         max_reports=data.max_reports,
-        allowed_categories=data.allowed_categories,
-        per_report_price=data.per_report_price,
         is_active=True,
     )
 
@@ -215,7 +201,7 @@ def create_subscription_plan(
 
 @router.put("/{plan_id}", response_model=SubscriptionPlanResponse)
 def update_subscription_plan(
-    plan_id: int,
+    plan_id: UUID,
     data: SubscriptionPlanUpdate,
     db: Session = Depends(get_db),
     _: None = Depends(require_superuser),
@@ -254,7 +240,7 @@ def update_subscription_plan(
 
 @router.patch("/{plan_id}/toggle")
 def toggle_subscription_plan(
-    plan_id: int,
+    plan_id: UUID,
     db: Session = Depends(get_db),
     _: None = Depends(require_superuser),
 ):

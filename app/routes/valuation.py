@@ -2,11 +2,12 @@
 
 import os
 import uuid
+from uuid import UUID
 from typing import Optional
 from datetime import datetime
 from fastapi import Request
 from sqlalchemy import or_
-from app.database import get_db
+from app.database.db import get_db
 from sqlalchemy.orm import Session
 from app.common import PaginatedResponse
 from fastapi.responses import FileResponse
@@ -41,71 +42,78 @@ os.makedirs(UPLOAD_DIR, exist_ok=True)
 @router.post("/create")
 async def create_valuation_form(
     request: Request,
-    subscription_id: int = Form(...),
+    subscription_id: UUID = Form(...),
     form: DesktopValuationForm = Depends(desktop_valuation_form_dep),
     attachment: UploadFile = File(None),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
+    print("1111")
     logger.info(
         f"Valuation request started user_id={current_user.id} "
         f"subscription_id={subscription_id}"
     )
     
     try:
+        print("222")
     
         try:
+            print("333")
             user_input = form.model_dump()
+            print("444")
         except Exception:
             logger.exception("Invalid valuation form data")
             raise HTTPException(400, "Invalid valuation input")
 
-        raw_type = user_input["property_type"].strip().lower()
+        # raw_type = user_input["property_type"].strip().lower()
         
-        logger.debug(f"Raw category type={raw_type}")
+        # logger.debug(f"Raw category type={raw_type}")
 
-        CATEGORY_ALIASES = {
-            # Residential
-            "residential": "residential",
-            "residential flat": "residential",
-            "residential apartment": "residential",
-            "flat": "residential",
-            "apartment": "residential",
-            "residential house": "residential",
-            "independent house": "residential",
-            "villa": "residential",
+        # CATEGORY_ALIASES = {
+        #     # Residential
+        #     "residential": "residential",
+        #     "residential flat": "residential",
+        #     "residential apartment": "residential",
+        #     "flat": "residential",
+        #     "apartment": "residential",
+        #     "residential house": "residential",
+        #     "independent house": "residential",
+        #     "villa": "residential",
 
-            # Commercial
-            "commercial": "commercial",
-            "commercial shop": "commercial",
-            "shop": "commercial",
-            "retail shop": "commercial",
-            "commercial office": "commercial",
-            "office": "commercial",
-            "showroom": "commercial",
+        #     # Commercial
+        #     "commercial": "commercial",
+        #     "commercial shop": "commercial",
+        #     "shop": "commercial",
+        #     "retail shop": "commercial",
+        #     "commercial office": "commercial",
+        #     "office": "commercial",
+        #     "showroom": "commercial",
 
-            # Industrial
-            "industrial unit": "industrial unit",
-            "factory": "industrial unit",
-            "warehouse": "industrial unit",
-            "industrial shed": "industrial unit",
-            "logistics park": "industrial unit",
+        #     # Industrial
+        #     "industrial unit": "industrial unit",
+        #     "factory": "industrial unit",
+        #     "warehouse": "industrial unit",
+        #     "industrial shed": "industrial unit",
+        #     "logistics park": "industrial unit",
 
-            # Land (non-residential)
-            "land": "land",
-            "plot": "land",
-            "commercial plot": "land",
-            "industrial plot": "land",
-            "vacant land": "land",
+        #     # Land (non-residential)
+        #     "land": "land",
+        #     "plot": "land",
+        #     "commercial plot": "land",
+        #     "industrial plot": "land",
+        #     "vacant land": "land",
 
-            # Residential Plot (explicit, preserved case)
-            "residential plot": "RESIDENTIAL PLOT",
-            "res plot": "RESIDENTIAL PLOT",
-            "housing plot": "RESIDENTIAL PLOT"
-        }
+        #     # Residential Plot (explicit, preserved case)
+        #     "residential plot": "RESIDENTIAL PLOT",
+        #     "res plot": "RESIDENTIAL PLOT",
+        #     "housing plot": "RESIDENTIAL PLOT"
+        # }
+        
+        print("555")
 
-        category = CATEGORY_ALIASES.get(raw_type)
+        category = category = user_input.get("property_type")
 
+        print("666")
         if not category:
             raise HTTPException(400, "Invalid property type")
         
@@ -118,7 +126,7 @@ async def create_valuation_form(
                 db=db,
                 user_id=current_user.id,
                 subscription_id=subscription_id,
-                category=category,
+                # category=category,
             )
         except HTTPException:
             raise
@@ -147,6 +155,8 @@ async def create_valuation_form(
             request_payload=user_input,
             country_code=country_code,
         )
+        
+        print(job)
         try:
             db.add(job)
             db.commit()

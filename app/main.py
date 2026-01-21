@@ -1,6 +1,6 @@
 import os
 from fastapi import FastAPI, Request
-from app.database import engine, Base
+from app.database.db import engine, Base
 from app.routes import auth as user_auth, valuation, subscription, payment, user_feedback
 from app.routes.admin import (
     auth,

@@ -1,14 +1,18 @@
+#app/models/feedback.py
+
+import uuid
 from datetime import datetime
 from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, Enum, Text
 from sqlalchemy.orm import relationship
+from sqlalchemy.dialects.postgresql import UUID
+from app.database.mixins import UUIDPrimaryKeyMixin
 
-from app.database import Base
+from app.database.db import Base
 
-class Feedback(Base):
+class Feedback(UUIDPrimaryKeyMixin, Base):
     __tablename__ = "feedback"
 
-    id = Column(Integer, primary_key=True)
-    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    user_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
 
     type = Column(
         Enum(
@@ -27,7 +31,7 @@ class Feedback(Base):
     rating = Column(Integer, nullable=True)  # 1–5
 
     valuation_id = Column(String, nullable=True)
-    subscription_id = Column(Integer, nullable=True)
+    subscription_id = Column(UUID(as_uuid=True), nullable=True)
 
     status = Column(
         Enum(

@@ -263,14 +263,25 @@ def generate_valuation_report(form_data: dict):
 
     property_type = form_data.get("property_type")
 
-    if not property_type or property_type not in PROPERTY_PROMPTS:
-        logger.error(f"Unsupported or missing property_type: {property_type}")
-        raise ValueError("Invalid or unsupported property_type")
+    if not property_type:
+        raise ValueError("property_type is required")
+    
+    property_rules = PROPERTY_PROMPTS.get(
+        property_type.lower(),
+        f"""
+        Property Rules:
+        - Interpret the property type "{property_type}" intelligently
+        - Decide whether land, construction, or hybrid valuation applies
+        - Use market comparables as the primary basis
+        - Apply conservative, bank-grade assumptions
+        - Handle non-standard or mixed-use properties logically
+        """
+    )
 
     final_prompt = f"""
           {BASE_PROMPT}
 
-          {PROPERTY_PROMPTS[property_type]}
+          {property_rules}
 
           Input:
               # {json.dumps(form_data)}

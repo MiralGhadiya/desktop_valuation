@@ -32,18 +32,6 @@
 
 
 
-Add /subscription/cancel
-
-Add /subscription/upgrade-preview
-
-Add /subscription/renew
-
-Add /subscription/limits endpoint
-
-
-
-
-
 
 #####  ------------ Check if new added default subscription thing is working or not ---------------
 ## ------------------ Check admin panel of desktop valuation one and check current one do need to make any change in created one or not and it needed then make changes --------------------
@@ -219,14 +207,9 @@ FORECAST_SCHEMA = """
 
 
 
-7️⃣ Optional (Recommended Enhancements)
 
-🔔 Email admin on new feedback
 
-📊 Admin dashboard widget:
 
-Open feedback count
 
-Avg rating
 
-💬 Admin replies (table: feedback_messages)
+

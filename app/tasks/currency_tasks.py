@@ -4,7 +4,7 @@ from datetime import datetime
 from dotenv import load_dotenv
 from celery import shared_task
 
-from app.database import SessionLocal
+from app.database.db import SessionLocal
 from app.models import ExchangeRate
 
 load_dotenv() 
