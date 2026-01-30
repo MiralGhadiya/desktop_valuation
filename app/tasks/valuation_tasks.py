@@ -6,8 +6,9 @@ from app.models.valuation import ValuationJob
 from app.services.valuation_service import save_valuation_report
 from app.services.subscription_service import increment_usage
 from app.services.valuation_report_builder import build_report_context
-from app.llm.openai import generate_valuation_report, generate_forecast
+from app.llm.openai import generate_valuation_report, generate_forecast, generate_swot
 from app.utils.pdf_generator import render_html, generate_pdf_from_html
+from app.utils.maps import geocode_address, build_static_maps
 from app.utils.email import send_pdf_email
 from app.models.subscription import UserSubscription
 
@@ -35,8 +36,10 @@ def process_valuation_job(self, job_id: str):
         
         core = generate_valuation_report(user_input)
         forecast = generate_forecast(core)
+        swot = generate_swot(core)   
 
         core["forecast"] = forecast
+        core["swot_analysis"] = swot
         ai_json = core
 
         
@@ -45,6 +48,25 @@ def process_valuation_job(self, job_id: str):
         print("FORECAST FROM AI:", ai_json.get("forecast"))
 
         context = build_report_context(ai_json, user_input)
+        
+        address = ai_json["property_details"]["address"]
+
+        # 3️⃣ Geocode
+        geo = geocode_address(address)
+
+        if geo:
+            maps = build_static_maps(geo["lat"], geo["lng"])
+
+            context["property_identification"]["location"] = {
+                "latitude": geo["lat"],
+                "longitude": geo["lng"],
+                "location_type": geo["location_type"],
+                "formatted_address": geo["formatted_address"],
+                "maps": maps
+            }
+        else:
+            context["property_identification"]["location"] = None
+            
         html = render_html("valuation_template.html", context)
         pdf_path = generate_pdf_from_html(html)
 

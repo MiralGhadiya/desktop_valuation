@@ -256,6 +256,41 @@ def _call_openai(final_prompt: str):
         temperature=0.2,
     )
 
+@traceable(name="generate_swot", run_type="llm")
+def generate_swot(core_output: dict):
+    prompt = f"""
+        You are a real estate SWOT analysis engine.
+
+        Rules:
+        - Return ONLY valid JSON
+        - No markdown
+        - No explanations
+        - Each list must contain 3–5 bullet points
+
+        Input:
+        {{
+        "property_type": "{core_output['property_details']['property_type']}",
+        "city": "{core_output['property_details']['city']}",
+        "confidence_score": {core_output['predicted_value']['confidence_score']},
+        "risk_level": "{core_output['bank_lending_model']['risk_level']}"
+        }}
+
+        Return exactly this JSON:
+        {{
+        "strengths": [],
+        "weaknesses": [],
+        "opportunities": [],
+        "threats": []
+        }}
+        """
+    response = client.chat.completions.create(
+        model="gpt-5.2",
+        messages=[{"role": "user", "content": prompt}],
+        temperature=0.3,
+        response_format={"type": "json_object"},
+    )
+    return json.loads(response.choices[0].message.content)
+
 
 @traceable(name="generate_valuation_report", run_type="chain")
 def generate_valuation_report(form_data: dict):

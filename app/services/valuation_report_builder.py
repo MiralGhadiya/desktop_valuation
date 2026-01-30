@@ -10,7 +10,7 @@ def build_report_context(ai_json, user_input):
         "valuation_id": f"DVP-{uuid.uuid4().hex[:8].upper()}",
         "date_of_report": datetime.now().strftime("%d-%b-%Y"),
         "purpose_of_valuation": user_input["purpose_of_valuation"],
-        "report_type": "Desktop Valuation (Automated)",
+        "report_type": "Desktop Valuation (No Physical Inspection)",
         "client_name": user_input["full_name"],
         "contact_information": {
             "email": user_input["email"],
@@ -25,7 +25,8 @@ def build_report_context(ai_json, user_input):
         "built_up_area": f"{ai_json['property_details']['built_up_area_sqft']} sqft",
         "zoning": ai_json["property_details"]["zoning"],
         "title_details": "Not Available",
-        "construction_year": f"{ai_json['property_details']['age_years']} years old",
+        # "construction_year": f"{ai_json['property_details']['age_years']} years old",
+        "construction_year": f"{datetime.now().year - ai_json['property_details']['age_years']}",
         "structure": "RCC Construction",
         "car_parking": "Available",
         "ownership_type": "Freehold",
@@ -64,15 +65,29 @@ def build_report_context(ai_json, user_input):
             "land_area": c["land_area"],
             "sale_date": "N/A",
             "sale_price": c["sale_price"],
-            "comparison": c["adjustment_reason"],
+            # "comparison": c["adjustment_reason"],
+            "comparison": (
+                "Superior" if "superior" in c["adjustment_reason"].lower()
+                else "Inferior" if "inferior" in c["adjustment_reason"].lower()
+                else "Comparable"
+            ),
             "distance": f"{c['distance_km']} km"
         })
 
     # -------- COMPARABLE SUMMARY --------
+    
+    prices = [c["sale_price"] for c in ai_json["comparables_used"]]
+
+    average_value = int(sum(prices) / len(prices)) if prices else None
+
     comparable_analysis_summary = {
-        "average_comparable_value": ai_json["predicted_value"]["mid_value"],
-        "adjusted_subject_estimate": ai_json["predicted_value"]["fair_market_value"]
+        "average_comparable_value": average_value,
+        "adjusted_subject_estimate": ai_json["predicted_value"]["mid_value"]
     }
+    # comparable_analysis_summary = {
+    #     "average_comparable_value": ai_json["predicted_value"]["mid_value"],
+    #     "adjusted_subject_estimate": ai_json["predicted_value"]["fair_market_value"]
+    # }
 
     # -------- THREE-TIER --------
     three_tier_valuation = {
@@ -84,7 +99,7 @@ def build_report_context(ai_json, user_input):
     # -------- RISK ANALYSIS --------
     valuation_risk_analysis = {
         "value_range": f"{ai_json['predicted_value']['low_value']} - {ai_json['predicted_value']['high_value']}",
-        "confidence_index": ai_json["predicted_value"]["confidence_score"],
+        "confidence_index": f"{ai_json['predicted_value']['confidence_score']}%",
         "market_risk_score": ai_json["bank_lending_model"]["risk_level"],
         "property_risk_score": "Moderate",
         "recommended_ltv": ai_json["bank_lending_model"]["recommended_ltv"],
@@ -92,15 +107,22 @@ def build_report_context(ai_json, user_input):
     }
 
     # -------- MARKET COMMENTARY --------
-    market_commentary = ai_json["buy_sell_recommendation"]["reasoning"]
+    # market_commentary = ai_json["buy_sell_recommendation"]["reasoning"]
+    market_commentary = ai_json["bank_lending_model"]["reason"]
 
     # -------- SWOT --------
-    swot_analysis = {
-        "strengths": ["Good locality demand", "Stable RCC structure", "Moderate appreciation potential"],
-        "weaknesses": ["Property age moderate", "Average liquidity"],
-        "opportunities": ["Growing micro-market demand", "Future redevelopment potential"],
-        "threats": ["Interest rate fluctuations", "Market corrections"]
-    }
+    # swot_analysis = {
+    #     "strengths": ["Good locality demand", "Stable RCC structure", "Moderate appreciation potential"],
+    #     "weaknesses": ["Property age moderate", "Average liquidity"],
+    #     "opportunities": ["Growing micro-market demand", "Future redevelopment potential"],
+    #     "threats": ["Interest rate fluctuations", "Market corrections"]
+    # }
+    swot_analysis = ai_json.get("swot_analysis", {
+        "strengths": [],
+        "weaknesses": [],
+        "opportunities": [],
+        "threats": []
+    })
 
     # -------- FORECAST (5 years) --------
     # growth = ai_json["forecast"]["growth_rate_percent"] / 100
@@ -137,7 +159,12 @@ def build_report_context(ai_json, user_input):
             "growth_rate": f"{rate}%",
             "forecast_value": current_value
         })
-
+        
+    assumptions_disclaimer = [
+        "This valuation is a desktop assessment and no physical inspection was conducted.",
+        "The valuation is indicative and may vary with market conditions.",
+        "The report is valid for 45 days from the date of issue."
+    ]
 
     return {
         "property_identification": property_identification,
@@ -148,5 +175,6 @@ def build_report_context(ai_json, user_input):
         "valuation_risk_analysis": valuation_risk_analysis,
         "market_commentary": market_commentary,
         "swot_analysis": swot_analysis,
-        "value_forecast": value_forecast
+        "value_forecast": value_forecast,
+        "assumptions_disclaimer": assumptions_disclaimer
     }

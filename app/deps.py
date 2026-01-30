@@ -6,6 +6,7 @@ from fastapi import Depends, HTTPException, status, Query
 from uuid import UUID
 
 from app import models
+from app.models.staff import Staff
 from app.database.db import get_db
 from app.auth import decode_token
 from app.utils.logger_config import app_logger as logger
@@ -84,3 +85,4 @@ def pagination_params(
         "search": search,
         "is_active": is_active,
     }
+

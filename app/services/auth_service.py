@@ -2,6 +2,7 @@
 
 from sqlalchemy.orm import Session
 from datetime import datetime, timezone
+from uuid import UUID
 from app.models import User, RefreshToken
 
 from app.utils.logger_config import app_logger as logger
@@ -9,7 +10,7 @@ from app.utils.logger_config import app_logger as logger
 
 def store_refresh_token(
     db: Session,
-    user_id: int,
+    user_id: UUID,
     token_hash: str,
     expires_at: datetime,
 ):
@@ -29,7 +30,7 @@ def store_refresh_token(
         raise
 
 
-def revoke_all_refresh_tokens(db: Session, user_id: int):
+def revoke_all_refresh_tokens(db: Session, user_id: UUID):
     logger.info(f"Revoking all refresh tokens user_id={user_id}")
     
     try:
@@ -43,7 +44,7 @@ def revoke_all_refresh_tokens(db: Session, user_id: int):
         raise
 
 
-def logout_user(db: Session, user_id: int):
+def logout_user(db: Session, user_id: UUID):
     logger.info(f"Logging out user user_id={user_id}")
 
     try:
@@ -60,7 +61,7 @@ def logout_user(db: Session, user_id: int):
         raise
 
 
-def revoke_refresh_token(db, user_id: int, refresh_token: str, pwd_context):
+def revoke_refresh_token(db, user_id: UUID, refresh_token: str, pwd_context):
     tokens = (
         db.query(RefreshToken)
         .filter(

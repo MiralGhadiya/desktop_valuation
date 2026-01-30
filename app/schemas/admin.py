@@ -20,6 +20,7 @@ class AdminUserResponse(BaseModel):
     is_active: bool
     is_email_verified: bool
     is_superuser: bool
+    role: str
 
     class Config:
         from_attributes = True

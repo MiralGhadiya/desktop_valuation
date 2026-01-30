@@ -12,6 +12,7 @@ from app.deps import pagination_params
 from app.deps import get_db, require_superuser
 
 from app.models import User
+from app.models.staff import Staff
 from app.services import auth_service
 from app.schemas import AdminUserResponse, AdminResetPassword
 from app.common import PaginatedResponse
@@ -32,31 +33,26 @@ USER_NOT_FOUND = "User not found"
 @router.get("", response_model=PaginatedResponse[AdminUserResponse])
 def list_users(
     db: Session = Depends(get_db),
-    _: User = Depends(require_superuser),
-    
+    admin_user: User = Depends(require_superuser),  
     params: dict = Depends(pagination_params),
-
     is_email_verified: Optional[bool] = Query(None),
     is_superuser: Optional[bool] = Query(None),
     country_id: Optional[int] = Query(None),
     is_active: Optional[bool] = Query(None),
-    
     verified_from: Optional[datetime] = Query(None),
     verified_to: Optional[datetime] = Query(None),
-    
     verified_within_days: Optional[int] = Query(
         None, ge=1, le=365, description="Email verified within last N days"
     ),
-
     sort_by: str = Query("id"),
     order: str = Query("desc"),
-
 ):
     logger.info(
         "Admin listing users "
         f"page={params['page']} limit={params['limit']} "
         f"search={params['search']}"
     )
+    
 
     query = db.query(User)
     
@@ -104,10 +100,8 @@ def list_users(
                 verified_to,
             )
 
-    # 📊 TOTAL COUNT
     total = query.count()
 
-    # 🔃 SORTING
     ALLOWED_SORT_FIELDS = {
         "id": User.id,
         "email": User.email,
@@ -124,7 +118,6 @@ def list_users(
     else:
         query = query.order_by(sort_column.desc())
 
-    # 📄 PAGINATION
     users = (
         query
         .offset((params["page"] - 1) * params["limit"])
@@ -150,7 +143,7 @@ def list_users(
 def get_user(
     user_id: UUID,
     db: Session = Depends(get_db),
-    _: User = Depends(require_superuser),
+    admin_user: User = Depends(require_superuser),
 ):
     logger.info(f"Admin fetching user user_id={user_id}")
     

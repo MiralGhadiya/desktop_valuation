@@ -1,11 +1,13 @@
+# app/tasks/currency_tasks.py
+
 import os
 import requests
 from datetime import datetime
 from dotenv import load_dotenv
 from celery import shared_task
 
-from app.database.db import SessionLocal
 from app.models import ExchangeRate
+from app.database.db import SessionLocal
 
 load_dotenv() 
 
@@ -33,21 +35,33 @@ def update_exchange_rates(self):
             raise RuntimeError("No quotes found")
 
         for pair, rate in quotes.items():
-            if pair.startswith("USD"):
-                currency = pair.replace("USD", "")
-                db.merge(
+            if not pair.startswith("USD"):
+                continue
+
+            currency = pair.replace("USD", "")
+
+            existing = db.query(ExchangeRate).filter(
+                ExchangeRate.currency_code == currency
+            ).first()
+
+            if existing:
+                existing.rate_to_usd = rate
+                existing.updated_at = datetime.utcnow()
+            else:
+                db.add(
                     ExchangeRate(
                         currency_code=currency,
                         rate_to_usd=rate,
                         updated_at=datetime.utcnow(),
                     )
                 )
-
+                
         db.commit()
         print(f"Stored {len(quotes)} exchange rates")
-
-    except Exception:
+        
+    except Exception as e:
         db.rollback()
+        print(f"Error updating exchange rates: {e}")
         raise
 
     finally:

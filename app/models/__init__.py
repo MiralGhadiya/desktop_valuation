@@ -8,5 +8,5 @@ from app.models.auth import (
 )
 from .subscription import SubscriptionPlan, UserSubscription
 from app.models.exchange_rate import ExchangeRate
-
+from app.models.staff import Staff
 

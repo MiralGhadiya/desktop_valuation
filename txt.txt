@@ -37,7 +37,7 @@
 ## ------------------ Check admin panel of desktop valuation one and check current one do need to make any change in created one or not and it needed then make changes --------------------
 
 
-
+########## -   "Add message of success to all apis"------------------------------
 
 
 BASE_PROMPT = """
@@ -208,8 +208,94 @@ FORECAST_SCHEMA = """
 
 
 
+      
+satellite = https://maps.googleapis.com/maps/api/staticmap?center=${latitude},${longitude}&zoom=16&size=600x600&maptype=satellite&key=AIzaSyB6UWTN3AqOnq7wlevRn_2_Gh4JgBsIYkg&markers=color:red%7C21.2346,72.8711
+
+roadmap = https://maps.googleapis.com/maps/api/staticmap?center=${latitude},${longitude}&zoom=16&size=600x600&maptype=roadmap&key=AIzaSyB6UWTN3AqOnq7wlevRn_2_Gh4JgBsIYkg&markers=color:red%7C21.2346,72.8711
+
+hybrid = https://maps.googleapis.com/maps/api/staticmap?center=21.2346,72.8711&zoom=15&size=600x600&scale=2&maptype=hybrid&markers=color:red%7C21.2346,72.8711&key=AIzaSyB6UWTN3AqOnq7wlevRn_2_Gh4JgBsIYkg
 
 
 
 
 
+
+
+
+
+
+
+Enzo is taking forever in Dunkin’ Donuts.
+He told me to stay across the street, but after ten minutes pass, I start to
+get antsy. What is happening in there?
+I wish I had gone with him. I don’t think it would’ve cramped his style
+too much. Well, maybe it would have. But given it’s my life at stake here,
+I’d like to know what’s going on.
+Finally, I cross the street to Dunkin’ Donuts. The storefront is made of
+windows, so it’s easy enough to look inside. I peer through the windows,
+and at first, I don’t see them at all. But then I do. All the way at the other
+end of the store where people pick up their orders. The two of them are
+talking together intently. Enzo’s black eyes seem completely focused on
+hers.
+For a moment, I feel a twinge of misgivings. I have always trusted
+Enzo, but there are times when I’m not entirely sure he’s trustworthy. After
+all, the reason he left Italy in the first place was because he beat a man half
+to death. He had a really good reason, at least according to him, but the fact
+remains. And then he took off to go overseas again, claiming the bad man
+who was after him met with an untimely demise, although he wouldn’t
+provide any further information on that.
+He told me his mother was sick. She had a stroke. But really, I only had
+his word to go on. It wasn’t like I ever saw his alleged sick mother.
+And then when he came back to the States, instead of giving me a call
+like any normal person would have, he followed me around for three
+freaking months, under the guise of protecting me. I told him all the details
+about the Garrick family. He’s savvy enough to have guessed Wendy was
+scamming me, even if I didn’t see it. Why didn’t he say anything?
+And oh my God, what on earth are they talking about in there for so
+long?
+Now that we are closer, I notice the blond woman has puffy eyes, like
+she’s been crying. But then she smiles at something Enzo says to her, and
+her face brightens slightly. It does look fairly innocent, I have to admit. He
+is very charming when he wants to be. Between his accent and the way he
+looks, he’s very good at talking to women.
+After what feels like another ten minutes, Enzo and the woman exit the
+Dunkin’ Donuts. He waves to her and says, “Ciao, bella!” Which makes her
+blush.
+When he sees me standing in front of the shop, he gives me a
+disapproving look. “I say stay across the street, yes?”
+I fold my arms across my chest. “You were in there a long time.”
+“Yes, and I know everything now.” He tilts his head. “You want I should
+tell you?”
+I look into Enzo’s dark eyes. This man doesn’t always do everything by
+the book. Like me, he has done some bad things in his life, although it has
+always been for the right reasons. I have seen him risk his own life to help
+women in danger. If there’s anyone in this world that I can trust, it’s him. I
+should never have doubted him for even a second. “Yes. Tell me.”
+Enzo glances down the street at where the woman is ducking into a
+subway station. “That woman, she is the assistant to Douglas Garrick. And
+she is the wife of the man you are looking for.”
+I stare at him. “Seriously? Are you sure?”
+“We will know in a second.” He digs into his pocket for his phone,
+types something into the screen, scrolls for a moment, then hands the phone
+over to me. “Is this him?”
+The picture on the screen is a headshot from LinkedIn, and I recognize
+the image immediately. It’s the man who was choking Wendy to death last
+night. The same man that I shot in the chest. “It’s him,” I gasp.
+I read the name of the LinkedIn profile: Russell Simonds.
+“As of this morning…” Enzo tugs his phone back out of my hands. “He
+is alive.”
+He’s alive. I didn’t kill anyone after all. The relief I feel is somewhat
+tempered by the fact that even though I didn’t kill anyone, the police
+definitely think I did.
+“But this morning he went away on… well, his wife says it is a business
+trip. This man is very busy, she says. Always working late.”
+Maybe that’s what they were arguing about that day on the street. Or
+maybe they were arguing because she suspected he was seeing another
+woman.
+Wendy.
+“So now what?” I say. “Do we wait until he returns from his alleged
+business trip?”
+“No,” Enzo says, “now I find out more about this Russell Simonds.”
+“How?”
+“I know a guy.”
+Of course he does.

@@ -101,6 +101,47 @@ def dashboard_users(
         raise HTTPException(500, "Failed to load users stats")
 
 
+@router.get("/user-registrations-by-year")
+def user_registrations_by_last_five_years(
+    db: Session = Depends(get_db),
+    _: None = Depends(require_superuser),
+):
+    try:
+        # Get the current year (e.g., 2026)
+        current_year = datetime.now().year
+
+        # Query user registrations by year
+        results = (
+            db.query(func.extract('year', User.email_verified_at).label('year'), func.count(User.id).label('total'))
+            .filter(func.extract('year', User.email_verified_at).in_([current_year-4, current_year-3, current_year-2, current_year-1, current_year]))
+            .group_by(func.extract('year', User.email_verified_at))
+            .order_by('year')
+            .all()
+        )
+
+        # Create a dictionary for years 2022–2026 (or current year - 4 to current year)
+        year_data = {year: 0 for year in range(current_year - 4, current_year + 1)}
+
+        # Populate the dictionary with actual data from the query
+        for year, total in results:
+            if year is not None:
+                year_data[int(year)] = total
+
+        # Format the data to return to frontend
+        user_data_by_year = [
+            {"year": year, "registrations": year_data[year]}
+            for year in range(current_year - 4, current_year + 1)
+        ]
+
+        logger.debug("Admin dashboard: user registrations by year aggregation completed")
+
+        return {"user_registrations_by_year": user_data_by_year}
+
+    except Exception:
+        logger.exception("Failed to load user registrations by year")
+        raise HTTPException(500, "Failed to load user registrations by year")
+    
+
 @router.get("/subscriptions")
 def dashboard_subscriptions_country_wise(
     db: Session = Depends(get_db),

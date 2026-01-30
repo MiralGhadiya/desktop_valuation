@@ -9,7 +9,8 @@ from app.routes.admin import (
     user_subscriptions,
     valuations,
     dashboard,
-    feedback
+    feedback,
+    staff,
 )
 
 import app.celery_app
@@ -52,7 +53,7 @@ app.include_router(user_subscriptions.router)
 app.include_router(valuations.router)
 app.include_router(dashboard.router)
 app.include_router(feedback.router)
-
+app.include_router(staff.router)
 
 @app.middleware("http")
 async def add_ip_country(request: Request, call_next):

@@ -36,5 +36,5 @@ celery_app.conf.beat_schedule = {
     "update-exchange-rates": {
         "task": "app.tasks.currency_tasks.update_exchange_rates",
         "schedule": crontab(hour=0, minute=0),
-    },
+    }
 }

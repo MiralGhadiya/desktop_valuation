@@ -1,5 +1,4 @@
 # app/models/user.py
-import uuid
 from sqlalchemy.orm import relationship
 from sqlalchemy import Column, Integer, String, Boolean, DateTime, ForeignKey
 from sqlalchemy.dialects.postgresql import UUID
@@ -12,6 +11,7 @@ class User(UUIDPrimaryKeyMixin, Base):
     __tablename__ = "users"
     
     email = Column(String, unique=True, index=True, nullable=True)
+    role = Column(String, nullable=False, default="INDIVIDUAL")
     username = Column(String, index=True, nullable=False)
     mobile_number = Column(String, unique=True, index=True, nullable=False)
     country_id = Column(UUID(as_uuid=True), ForeignKey("countries.id"))
@@ -24,3 +24,5 @@ class User(UUIDPrimaryKeyMixin, Base):
     country = relationship("Country", back_populates="users")
     
     is_superuser = Column(Boolean, default=False)
+    
+    staff_member = relationship("Staff", back_populates="user", uselist=False)

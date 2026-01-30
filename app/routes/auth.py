@@ -19,6 +19,8 @@ from app.deps import get_db, get_current_user
 from app.auth import verify_password, create_access_token, create_refresh_token
 
 from app import schemas
+from app.schemas.staff import StaffLogin
+from app.models.staff import Staff
 from app.services import user_service, country_service, auth_service
 from app.models import EmailVerificationToken, User, SubscriptionPlan, UserSubscription, PasswordResetToken
 
@@ -282,7 +284,8 @@ def get_profile(current_user: User = Depends(get_current_user)):
         "username": current_user.username,
         "email": current_user.email,
         "mobile_number": current_user.mobile_number,
-        "country": current_user.country.name
+        "country": current_user.country,
+        "role": current_user.role,
     }
  
  
@@ -456,3 +459,42 @@ def logout(
     except Exception:
         logger.exception(f"Logout failed user_id={current_user.id}")
         raise HTTPException(500, "Logout failed")
+    
+    
+@router.post("/staff/login")
+def staff_login(
+    data: StaffLogin,
+    db: Session = Depends(get_db),
+):
+    # Query the staff member by email
+    staff_member = db.query(Staff).filter(Staff.email == data.email).first()
+
+    # Validate staff member credentials
+    if not staff_member or not verify_password(data.password, staff_member.password):
+        raise HTTPException(status_code=401, detail="Invalid credentials")
+
+    # Ensure the staff member is linked to a valid user
+    user = db.query(User).filter(User.id == staff_member.user_id).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    # Generate the access token with the linked user's id (sub) field
+    access_token = create_access_token({"sub": str(user.id)})
+
+    # Generate the refresh token (optional, if you're using refresh tokens as well)
+    refresh_token = create_refresh_token({"sub": str(user.id)})
+
+    # Store the refresh token for the linked user (ensures FK integrity)
+    auth_service.store_refresh_token(
+        db,
+        user.id,
+        pwd_context.hash(refresh_token),
+        datetime.now(timezone.utc) + timedelta(days=7),
+    )
+
+    # Return the access token and refresh token
+    return {
+        "access_token": access_token,
+        "refresh_token": refresh_token,
+        "token_type": "bearer",
+    }

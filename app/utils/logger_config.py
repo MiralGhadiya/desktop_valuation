@@ -1,3 +1,5 @@
+# app/utils/logger_config.py
+
 import os
 import sys
 import logging
@@ -41,15 +43,20 @@ console_handler.setFormatter(formatter)
 handlers.append(console_handler)
 
 if not IS_ALEMBIC:
-    file_handler = TimedRotatingFileHandler(
-        LOG_FILE,
-        when="midnight",
-        interval=1,
-        backupCount=30,
-        encoding="utf-8",
-        delay=True,        # 🔑 Windows-safe
-        utc=True,
-    )
+    try:
+        file_handler = TimedRotatingFileHandler(
+            LOG_FILE,
+            when="midnight",
+            interval=1,
+            backupCount=30,
+            encoding="utf-8",
+            delay=False,      # Disable delay
+            utc=True,
+        )
+        file_handler.setFormatter(formatter)
+        handlers.append(file_handler)
+    except Exception as e:
+        logger.error(f"Error setting up file handler: {e}")
     file_handler.setFormatter(formatter)
     handlers.append(file_handler)
 
