@@ -12,6 +12,7 @@ from app.models.feedback import Feedback
 from app.models.subscription import SubscriptionPlan, UserSubscription
 from app.models.valuation import ValuationReport
 
+from app.utils.response import APIResponse, success_response
 from app.utils.logger_config import app_logger as logger
 
 datetime.now(timezone.utc)
@@ -23,7 +24,7 @@ router = APIRouter(
 )
 
 
-@router.get("/overview")
+@router.get("/overview", response_model=APIResponse[dict])
 def dashboard_overview(
     db: Session = Depends(get_db),
     _: None = Depends(require_superuser),
@@ -45,25 +46,29 @@ def dashboard_overview(
 
         logger.debug("Admin dashboard: overview aggregation completed")
 
-        return {
-            "users": {
-                "total": total_users,
-                "active": active_users,
+        return success_response(
+            data={
+                "users": {
+                    "total": total_users,
+                    "active": active_users,
+                },
+                "subscriptions": {
+                    "total": total_subscriptions,
+                    "active": active_subscriptions,
+                },
+                "valuations": {
+                    "total": total_valuations
+                }
             },
-            "subscriptions": {
-                "total": total_subscriptions,
-                "active": active_subscriptions,
-            },
-            "valuations": {
-                "total": total_valuations
-            }
-        }
+            message="Dashboard overview fetched successfully"
+        )
+
     except Exception:
         logger.exception("Dashboard overview failed")
         raise HTTPException(500, "Failed to load dashboard overview")
 
 
-@router.get("/users")
+@router.get("/users", response_model=APIResponse[dict])
 def dashboard_users(
     db: Session = Depends(get_db),
     _: None = Depends(require_superuser),
@@ -90,18 +95,21 @@ def dashboard_users(
 
         logger.debug("Admin dashboard: users stats aggregation completed")
 
-        return {
-            "email_verified": verified,
-            "email_unverified": unverified,
-            "inactive_users": inactive,
-            "new_users_last_30_days": new_users_30d,
-        }
+        return success_response(
+            data={
+                "email_verified": verified,
+                "email_unverified": unverified,
+                "inactive_users": inactive,
+                "new_users_last_30_days": new_users_30d,
+            },
+            message="Users stats fetched successfully"
+        )
     except Exception:
         logger.exception("Dashboard users stats failed")
         raise HTTPException(500, "Failed to load users stats")
 
 
-@router.get("/user-registrations-by-year")
+@router.get("/user-registrations-by-year", response_model=APIResponse[dict])
 def user_registrations_by_last_five_years(
     db: Session = Depends(get_db),
     _: None = Depends(require_superuser),
@@ -135,14 +143,17 @@ def user_registrations_by_last_five_years(
 
         logger.debug("Admin dashboard: user registrations by year aggregation completed")
 
-        return {"user_registrations_by_year": user_data_by_year}
+        return success_response(
+            data={"user_registrations_by_year": user_data_by_year},
+            message="User registrations by year fetched successfully"
+        )
 
     except Exception:
         logger.exception("Failed to load user registrations by year")
         raise HTTPException(500, "Failed to load user registrations by year")
     
 
-@router.get("/subscriptions")
+@router.get("/subscriptions", response_model=APIResponse[list])
 def dashboard_subscriptions_country_wise(
     db: Session = Depends(get_db),
     _: None = Depends(require_superuser),
@@ -177,13 +188,14 @@ def dashboard_subscriptions_country_wise(
 
         logger.debug("Admin dashboard: subscription aggregation completed")
 
-        return [
-            {
-                "country": r.country_code,
-                "plan": r.name,
-                "currency": r.currency,
-                "price": r.price,
-                "subscriptions": {
+        return success_response(
+            data=[
+                {
+                    "country": r.country_code,
+                    "plan": r.name,
+                    "currency": r.currency,
+                    "price": r.price,
+                    "subscriptions": {
                     "total": r.total,
                     "active": r.active,
                 },
@@ -193,13 +205,15 @@ def dashboard_subscriptions_country_wise(
                 },
             }
             for r in rows
-        ]
+        ],
+            message="Subscriptions breakdown fetched successfully"
+        )
     except Exception:
         logger.exception("Dashboard subscriptions breakdown failed")
         raise HTTPException(500, "Failed to load subscriptions breakdown")
 
 
-@router.get("/valuations")
+@router.get("/valuations", response_model=APIResponse[dict])
 def dashboard_valuations(
     db: Session = Depends(get_db),
     _: None = Depends(require_superuser),
@@ -223,19 +237,22 @@ def dashboard_valuations(
 
         logger.debug("Admin dashboard: valuation aggregation completed")
 
-        return {
-            "by_category": [
-                {"category": cat, "count": count}
-                for cat, count in by_category
-            ],
-            "last_30_days": last_30d_count,
-        }
+        return success_response(
+            data={
+                "by_category": [
+                    {"category": cat, "count": count}
+                    for cat, count in by_category
+                ],
+                "last_30_days": last_30d_count,
+            },
+            message="Valuations stats fetched successfully"
+        )
     except Exception:
         logger.exception("Dashboard valuations stats failed")
         raise HTTPException(500, "Failed to load valuations stats")
     
 
-@router.get("/countries")
+@router.get("/countries", response_model=APIResponse[dict])
 def dashboard_countries(
     db: Session = Depends(get_db),
     _: None = Depends(require_superuser),
@@ -263,23 +280,26 @@ def dashboard_countries(
 
         logger.debug("Admin dashboard: country-wise aggregation completed")
 
-        return {
-            "subscriptions": [
-                {"country": c, "count": count}
-                for c, count in subs_by_country
-            ],
-            "valuations": [
+        return success_response(
+            data={
+                "subscriptions": [
+                    {"country": c, "count": count}
+                    for c, count in subs_by_country
+                ],
+                "valuations": [
                 {"country": c, "count": count}
                 for c, count in valuations_by_country
             ],
-        }
+        },
+            message="Country-wise stats fetched successfully"
+        )
     except Exception:
         logger.exception("Dashboard country-wise stats failed")
         raise HTTPException(500, "Failed to load country-wise stats")
     
 
 
-@router.get("/feedback")
+@router.get("/feedback", response_model=APIResponse[dict])
 def feedback_stats(
     db: Session = Depends(get_db),
     _: None = Depends(require_superuser),
@@ -298,8 +318,11 @@ def feedback_stats(
         .scalar()
     )
 
-    return {
-        "total_feedback": total,
-        "open_feedback": open_count,
-        "avg_rating": round(float(avg_rating), 2) if avg_rating is not None else None,
-    }
+    return success_response(
+        data={
+            "total_feedback": total,
+            "open_feedback": open_count,
+            "avg_rating": round(float(avg_rating), 2) if avg_rating is not None else None,
+        },
+        message="Feedback stats fetched successfully"
+    )

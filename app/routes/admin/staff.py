@@ -1,12 +1,17 @@
 from uuid import UUID
-from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
+from fastapi import APIRouter, Depends, HTTPException
+
+from app.models.user import User
+from app.models.staff import Staff
+
+from app.schemas.staff import StaffCreate, StaffResponse, StaffUpdate
+
 from app.auth import hash_password
 from app.common import PaginatedResponse
-from app.models.staff import Staff
-from app.models.user import User
-from app.schemas.staff import StaffCreate, StaffResponse, StaffUpdate
+
 from app.database.db import get_db
+from app.utils.response import APIResponse, success_response
 from app.deps import pagination_params, require_superuser
 
 router = APIRouter(prefix="/admin/staff", tags=["admin-staff"])
@@ -16,66 +21,60 @@ def build_accesses(staff: Staff) -> dict:
     return {
         "can_access_user": staff.can_access_user,
         "can_access_staff": staff.can_access_staff,
-        "can_access_property": staff.can_access_property,
-        "can_add_property": staff.can_add_property,
-        "can_edit_property": staff.can_edit_property,
-        "can_delete_property": staff.can_delete_property,
-        "can_unlist_property": staff.can_unlist_property,
+        "can_access_dashboard": staff.can_access_dashboard,
+        "can_access_reports": staff.can_access_reports,
+        "can_access_subscriptions_plans": staff.can_access_subscriptions_plans,
     }
 
 
-@router.post("/", response_model=StaffResponse)
+@router.post("/", response_model=APIResponse[StaffResponse])
 def create_staff(
     staff: StaffCreate, 
     db: Session = Depends(get_db),
     admin_user: User = Depends(require_superuser)
 ):
-    # Check if email already exists in the staff table
+
     existing_staff = db.query(Staff).filter(Staff.email == staff.email).first()
     if existing_staff:
         raise HTTPException(status_code=400, detail="Email already registered")
 
-    # Hash the staff password before saving it
     hashed_password = hash_password(staff.password)
 
-    # Ensure the admin_user has a valid user_id (the user that creates this staff)
-    if not admin_user:  # Ensure the admin_user exists
+    if not admin_user:
         raise HTTPException(status_code=404, detail="Admin user not found")
 
-    # Create new staff member with admin's user_id as the creator
     new_staff = Staff(
         name=staff.name,
         email=staff.email,
         phone=staff.phone,
-        password=hashed_password,  # Use the hashed password here
+        password=hashed_password, 
         role=staff.role,
-        user_id=admin_user.id,  # Ensure this is set to an existing user in the users table
+        user_id=admin_user.id, 
         can_access_user=staff.can_access_user,
         can_access_staff=staff.can_access_staff,
-        can_access_property=staff.can_access_property,
-        can_add_property=staff.can_add_property,
-        can_edit_property=staff.can_edit_property,
-        can_delete_property=staff.can_delete_property,
-        can_unlist_property=staff.can_unlist_property,
+        can_access_dashboard=staff.can_access_dashboard,
+        can_access_reports=staff.can_access_reports,
+        can_access_subscriptions_plans=staff.can_access_subscriptions_plans,
     )
 
     db.add(new_staff)
     db.commit()
     db.refresh(new_staff)
 
-    return StaffResponse(
-        id=new_staff.id,
-        name=new_staff.name,
-        email=new_staff.email,
-        phone=new_staff.phone,
-        role=new_staff.role,
-        accesses=build_accesses(new_staff),
+    return success_response(
+        data = StaffResponse(
+            id=new_staff.id,
+            name=new_staff.name,
+            email=new_staff.email,
+            phone=new_staff.phone,
+            role=new_staff.role,
+            accesses=build_accesses(new_staff),
+    ),
+        message="Staff member created successfully"
     )
 
 
-
-# Get all Staff
-@router.get("/", response_model=PaginatedResponse[StaffResponse])
+@router.get("/", response_model=APIResponse[PaginatedResponse[StaffResponse]])
 def list_staff(
     db: Session = Depends(get_db),
     admin_user: User = Depends(require_superuser),
@@ -85,10 +84,8 @@ def list_staff(
     
     query = db.query(Staff)
 
-    # Apply pagination parameters (offset and limit)
     staff_members = query.offset((params["page"] - 1) * params["limit"]).limit(params["limit"]).all()
 
-    # Get the total number of staff members (without pagination)
     total = db.query(Staff).count()
     
     data = [
@@ -103,18 +100,20 @@ def list_staff(
         for s in staff_members
     ]
 
-    return {
-        "data": data,
-        "pagination": {
-            "page": params["page"],
-            "limit": params["limit"],
-            "total": total,
-        }
-    }
+    return success_response(
+        data={
+            "data": data,
+            "pagination": {
+                "page": params["page"],
+                "limit": params["limit"],
+                "total": total,
+            }
+    },
+        message="Staff list fetched successfully"
+    )
 
 
-# Get Staff by ID
-@router.get("/{staff_id}", response_model=StaffResponse)
+@router.get("/{staff_id}", response_model=APIResponse[StaffResponse])
 def get_staff(
     staff_id: UUID,
     db: Session = Depends(get_db),
@@ -126,21 +125,23 @@ def get_staff(
     if not staff_member:
         raise HTTPException(status_code=404, detail="Staff member not found")
 
-    return StaffResponse(
-        id=staff_member.id,
-        name=staff_member.name,
-        email=staff_member.email,
-        phone=staff_member.phone,
-        role=staff_member.role,
+    return success_response(
+        data=StaffResponse(
+            id=staff_member.id,
+            name=staff_member.name,
+            email=staff_member.email,
+            phone=staff_member.phone,
+            role=staff_member.role,
         accesses=build_accesses(staff_member),
+    ),
+        message="Staff member fetched successfully"
     )
 
 
-# Update Staff
-@router.patch("/{staff_id}", response_model=StaffResponse)
+@router.patch("/{staff_id}", response_model=APIResponse[StaffResponse])
 def update_staff(
     staff_id: UUID,
-    staff_update: StaffUpdate,  # Use the StaffUpdate schema
+    staff_update: StaffUpdate, 
     db: Session = Depends(get_db),
     _: User = Depends(require_superuser),
 ):
@@ -149,7 +150,6 @@ def update_staff(
     if not staff_member:
         raise HTTPException(status_code=404, detail="Staff member not found")
 
-    # Update only fields that are provided in the request
     if staff_update.name is not None:
         staff_member.name = staff_update.name
     if staff_update.email is not None:
@@ -164,24 +164,30 @@ def update_staff(
         staff_member.can_access_user = staff_update.can_access_user
     if staff_update.can_access_staff is not None:
         staff_member.can_access_staff = staff_update.can_access_staff
-    if staff_update.can_access_property is not None:
-        staff_member.can_access_property = staff_update.can_access_property
-    if staff_update.can_add_property is not None:
-        staff_member.can_add_property = staff_update.can_add_property
-    if staff_update.can_edit_property is not None:
-        staff_member.can_edit_property = staff_update.can_edit_property
-    if staff_update.can_delete_property is not None:
-        staff_member.can_delete_property = staff_update.can_delete_property
-    if staff_update.can_unlist_property is not None:
-        staff_member.can_unlist_property = staff_update.can_unlist_property
+    if staff_update.can_access_dashboard is not None:
+        staff_member.can_access_dashboard = staff_update.can_access_dashboard
+    if staff_update.can_access_reports is not None:
+        staff_member.can_access_reports = staff_update.can_access_reports
+    if staff_update.can_access_subscriptions_plans is not None:
+        staff_member.can_access_subscriptions_plans = staff_update.can_access_subscriptions_plans
 
     db.commit()
     db.refresh(staff_member)
 
-    return staff_member
-
-
-@router.delete("/{staff_id}", response_model=dict)
+    return success_response(
+        data=StaffResponse(
+            id=staff_member.id,
+            name=staff_member.name,
+            email=staff_member.email,
+            phone=staff_member.phone,
+            role=staff_member.role,
+            accesses=build_accesses(staff_member),
+        ),
+        message="Staff updated successfully"
+    )
+    
+    
+@router.delete("/{staff_id}", response_model=APIResponse[dict])
 def delete_staff(
     staff_id: UUID,
     db: Session = Depends(get_db),
@@ -195,4 +201,6 @@ def delete_staff(
     db.delete(staff_member)
     db.commit()
 
-    return {"message": "Staff member deleted successfully"}
+    return success_response(
+        message = "Staff member deleted successfully"
+    )

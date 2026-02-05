@@ -4,6 +4,9 @@ import secrets
 from app.auth import pwd_context
 from sqlalchemy.orm import Session
 
+from google.oauth2 import id_token
+from google.auth.transport import requests
+
 from dotenv import load_dotenv
 load_dotenv()
 
@@ -11,6 +14,8 @@ from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
 from datetime import datetime, timedelta, timezone
 from fastapi import APIRouter, Depends, HTTPException, Request
+
+from app.middleware.ip_country import get_client_ip, get_ip_country
 
 from app.utils.phone import get_country_from_mobile
 from app.utils.email import send_reset_email, send_verification_email
@@ -20,10 +25,13 @@ from app.auth import verify_password, create_access_token, create_refresh_token
 
 from app import schemas
 from app.schemas.staff import StaffLogin
-from app.models.staff import Staff
+
 from app.services import user_service, country_service, auth_service
+
+from app.models.staff import Staff
 from app.models import EmailVerificationToken, User, SubscriptionPlan, UserSubscription, PasswordResetToken
 
+from app.utils.response import APIResponse, success_response
 from app.utils.logger_config import app_logger as logger
 
 BASE_URL = os.getenv("BASE_URL", "http://localhost:8000")
@@ -33,6 +41,19 @@ datetime.now(timezone.utc)
 router = APIRouter()
 
 templates = Jinja2Templates(directory="app/templates")
+
+
+def verify_google_token(token: str):
+    try:
+        payload = id_token.verify_oauth2_token(
+            token,
+            requests.Request(),
+            os.getenv("GOOGLE_CLIENT_ID"),
+        )
+        return payload
+    except Exception:
+        return None
+
 
 @router.post("/register")
 def register(user: schemas.UserCreate, db: Session = Depends(get_db)):
@@ -102,38 +123,47 @@ def register(user: schemas.UserCreate, db: Session = Depends(get_db)):
         raise HTTPException(500, "Registration failed")
 
 
-@router.get("/verify-email")
-def verify_email(token: str, db: Session = Depends(get_db)):
-    
-    logger.info("Email verification attempt")
-    
+@router.get("/verify-email", response_class=HTMLResponse)
+def verify_email_page(
+    token: str,
+    request: Request,
+    db: Session = Depends(get_db)
+):
+    success = False
+    message = "Invalid or expired verification link"
+
     tokens = db.query(EmailVerificationToken).filter(
         EmailVerificationToken.used == False,
         EmailVerificationToken.expires_at > datetime.now(timezone.utc)
     ).all()
-    
+
     verification = next(
         (t for t in tokens if pwd_context.verify(token, t.token_hash)),
         None
     )
 
-    if not verification:
-        raise HTTPException(status_code=400, detail="Invalid or expired verification link")
+    if verification:
+        user = db.query(User).filter(User.id == verification.user_id).first()
+        try:
+            user.is_email_verified = True
+            user.email_verified_at = datetime.now(timezone.utc)
+            verification.used = True
+            db.commit()
+            success = True
+            message = "Your email has been verified successfully."
+        except Exception:
+            db.rollback()
+            logger.exception("Email verification failed")
 
-    user = db.query(User).filter(User.id == verification.user_id).first()
-    logger.info(f"Email verified for user_id={user.id}")
-    
-    try:
-        user.is_email_verified = True
-        user.email_verified_at = datetime.now(timezone.utc)
-        verification.used = True
-        db.commit()
-    except Exception:
-        db.rollback()
-        logger.exception("Email verification failed")
-        raise HTTPException(status_code=500, detail="Email verification failed")
-    
-    return {"message": "Email verified successfully"}
+    return templates.TemplateResponse(
+        "verify_email.html",
+        {
+            "request": request,
+            "success": success,
+            "message": message,
+            "frontend_url": os.getenv("FRONTEND_URL", "http://localhost:3000")
+        }
+    )
 
 
 @router.post("/resend-verification")
@@ -186,11 +216,61 @@ def resend_verification_email(
     }
 
 
+# @router.get("/verify-email-page", response_class=HTMLResponse)
+# def verify_email_page(
+#     token: str,
+#     request: Request,
+#     db: Session = Depends(get_db)
+# ):
+#     success = False
+#     message = "Invalid or expired verification link"
+
+#     tokens = db.query(EmailVerificationToken).filter(
+#         EmailVerificationToken.used == False,
+#         EmailVerificationToken.expires_at > datetime.now(timezone.utc)
+#     ).all()
+
+#     verification = next(
+#         (t for t in tokens if pwd_context.verify(token, t.token_hash)),
+#         None
+#     )
+
+#     if verification:
+#         user = db.query(User).filter(User.id == verification.user_id).first()
+
+#         try:
+#             user.is_email_verified = True
+#             user.email_verified_at = datetime.now(timezone.utc)
+#             verification.used = True
+#             db.commit()
+#             success = True
+#             message = "Email verified successfully"
+#         except Exception:
+#             db.rollback()
+#             logger.exception("Email verification failed")
+
+#     return templates.TemplateResponse(
+#         "verify_email.html",
+#         {
+#             "request": request,
+#             "success": success,
+#             "message": message,
+#             "frontend_url": os.getenv("FRONTEND_URL", "http://localhost:8000")
+#         }
+#     )
+
+
 @router.post("/login")
 def login(user: schemas.UserLogin, db: Session = Depends(get_db)):
 
     try:
         db_user = user_service.get_user_by_email(db, user.email)
+        
+        if db_user and db_user.provider != "LOCAL":
+            raise HTTPException(
+                status_code=400,
+                detail="This account uses Google login"
+            )
 
         if not db_user or not verify_password(user.password, db_user.hashed_password):
             raise HTTPException(401, "Invalid credentials")
@@ -218,7 +298,83 @@ def login(user: schemas.UserLogin, db: Session = Depends(get_db)):
     except Exception:
         logger.exception("Login failed")
         raise HTTPException(500, "Login failed")
- 
+
+
+@router.post("/google")
+def google_login(
+    request: Request,  
+    data: schemas.GoogleLogin,
+    db: Session = Depends(get_db),
+):
+    payload = verify_google_token(data.id_token)
+
+    if not payload:
+        raise HTTPException(status_code=401, detail="Invalid Google token")
+
+    email = payload.get("email")
+    google_id = payload.get("sub")
+    name = payload.get("name", "User")
+
+    if not email:
+        raise HTTPException(400, "Google account has no email")
+
+    user = db.query(User).filter(
+        User.provider == "GOOGLE",
+        User.provider_id == google_id
+    ).first()
+
+    country_id = None
+    client_ip = get_client_ip(request)
+    print(f"Client IP: {client_ip}")
+    country_code = get_ip_country(client_ip)
+    print(f"Country code from IP: {country_code}")
+
+    if country_code:
+        country = country_service.get_country_by_country_code(db, country_code)
+        print(f"Country from DB: {country}")
+
+        if not country:
+            country = country_service.create_country(
+                db,
+                name=country_code,        # or map to full name later
+                dial_code=None,           # unknown from IP
+                country_code=country_code
+            )
+            print(f"Created new country: {country}")
+
+        country_id = country.id
+
+    if not user:
+        user = User(
+            email=email,
+            username=name,
+            mobile_number=f"google_{google_id[:10]}",
+            country_id=country_id, 
+            hashed_password="GOOGLE_AUTH",
+            provider="GOOGLE",
+            provider_id=google_id,
+            is_email_verified=True,
+            email_verified_at=datetime.now(timezone.utc),
+        )
+        db.add(user)
+        db.commit()
+        db.refresh(user)
+
+    access_token = create_access_token({"sub": str(user.id)})
+    refresh_token = create_refresh_token({"sub": str(user.id)})
+
+    auth_service.store_refresh_token(
+        db,
+        user.id,
+        pwd_context.hash(refresh_token),
+        datetime.now(timezone.utc) + timedelta(days=7),
+    )
+
+    return {
+        "access_token": access_token,
+        "refresh_token": refresh_token,
+    }
+    
    
 @router.post("/refresh", response_model=schemas.TokenResponse)
 def refresh_token(
@@ -284,7 +440,7 @@ def get_profile(current_user: User = Depends(get_current_user)):
         "username": current_user.username,
         "email": current_user.email,
         "mobile_number": current_user.mobile_number,
-        "country": current_user.country,
+        "country": current_user.country.name if current_user.country else None,
         "role": current_user.role,
     }
  
@@ -461,30 +617,24 @@ def logout(
         raise HTTPException(500, "Logout failed")
     
     
-@router.post("/staff/login")
+@router.post("/staff/login", response_model=APIResponse[dict])
 def staff_login(
     data: StaffLogin,
     db: Session = Depends(get_db),
 ):
-    # Query the staff member by email
     staff_member = db.query(Staff).filter(Staff.email == data.email).first()
 
-    # Validate staff member credentials
     if not staff_member or not verify_password(data.password, staff_member.password):
         raise HTTPException(status_code=401, detail="Invalid credentials")
 
-    # Ensure the staff member is linked to a valid user
     user = db.query(User).filter(User.id == staff_member.user_id).first()
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
 
-    # Generate the access token with the linked user's id (sub) field
     access_token = create_access_token({"sub": str(user.id)})
 
-    # Generate the refresh token (optional, if you're using refresh tokens as well)
     refresh_token = create_refresh_token({"sub": str(user.id)})
 
-    # Store the refresh token for the linked user (ensures FK integrity)
     auth_service.store_refresh_token(
         db,
         user.id,
@@ -492,9 +642,11 @@ def staff_login(
         datetime.now(timezone.utc) + timedelta(days=7),
     )
 
-    # Return the access token and refresh token
-    return {
-        "access_token": access_token,
-        "refresh_token": refresh_token,
-        "token_type": "bearer",
-    }
+    return success_response(
+        data={
+            "access_token": access_token,
+            "refresh_token": refresh_token,
+            "token_type": "bearer",
+        },
+        message="Staff login successful"
+    )

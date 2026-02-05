@@ -6,6 +6,11 @@ from pydantic import BaseModel, EmailStr
 from typing_extensions import Literal
 
 
+class AdminTokenResponse(BaseModel):
+    access_token: str
+    token_type: str
+
+
 class AdminProfile(BaseModel):
     id: UUID
     email: EmailStr
@@ -25,6 +30,13 @@ class AdminUserResponse(BaseModel):
     class Config:
         from_attributes = True
 
+
+class AdminUserUpdate(BaseModel):
+    username: Optional[str] = None
+    email: Optional[EmailStr] = None
+    mobile_number: Optional[str] = None
+    role: Optional[str] = None
+    
 
 class AdminResetPassword(BaseModel):
     new_password: str

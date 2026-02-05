@@ -6,7 +6,7 @@ from sqlalchemy.orm import Session
 from datetime import datetime, timedelta, timezone
 from fastapi import APIRouter, Depends, HTTPException, Query
 
-from app.deps import get_db, require_superuser
+from app.deps import get_db, require_superuser, pagination_params
 
 from app.models import User
 from app.models.subscription import SubscriptionPlan, UserSubscription
@@ -14,8 +14,8 @@ from app.models.subscription import SubscriptionPlan, UserSubscription
 from app.schemas import UpdateSubscription, UserSubscriptionResponse, AssignSubscription
 
 from app.common import PaginatedResponse
-from app.deps import pagination_params
 from app.utils.date_filters import filter_by_date_range
+from app.utils.response import APIResponse, success_response
 
 from app.utils.logger_config import app_logger as logger
 
@@ -60,11 +60,10 @@ class UserSubscriptionFilters:
         self.purchased_within_days = purchased_within_days
 
 
-@router.get("/user-subscriptions", response_model=PaginatedResponse[UserSubscriptionResponse])
+@router.get("/user-subscriptions", response_model=APIResponse[PaginatedResponse[UserSubscriptionResponse]])
 def list_all_user_subscriptions(
     db: Session = Depends(get_db),
     _: None = Depends(require_superuser),
-
     params: dict = Depends(pagination_params),
     filters: UserSubscriptionFilters = Depends(),
     
@@ -83,7 +82,6 @@ def list_all_user_subscriptions(
         .join(SubscriptionPlan)
     )
 
-    # 🔍 SEARCH (plan name)
     if params["search"]:
         query = query.filter(
             SubscriptionPlan.name.ilike(f"%{params['search']}%")
@@ -137,7 +135,6 @@ def list_all_user_subscriptions(
         filters.start_to,
     )
 
-    # expiry date
     query = filter_by_date_range(
         query,
         UserSubscription.end_date,
@@ -163,23 +160,23 @@ def list_all_user_subscriptions(
         .limit(params["limit"])
         .all()
     )
-
     
     logger.debug(f"Admin fetched user subscriptions count={len(subs)}")
 
-    return {
-        "data": [
-            UserSubscriptionResponse(
-                id=s.id,
-                user_id=s.user_id,
-                plan_id=s.plan_id,
-                plan_name=s.plan.name,
-                pricing_country_code=s.pricing_country_code,
-                start_date=s.start_date,
-                end_date=s.end_date,
-                reports_used=s.reports_used,
-                is_active=s.is_active,
-            )
+    return success_response(
+        data={
+            "data": [
+                UserSubscriptionResponse(
+                    id=s.id,
+                    user_id=s.user_id,
+                    plan_id=s.plan_id,
+                    plan_name=s.plan.name,
+                    pricing_country_code=s.pricing_country_code,
+                    start_date=s.start_date,
+                    end_date=s.end_date,
+                    reports_used=s.reports_used,
+                    is_active=s.is_active,
+                )
             for s in subs
         ],
         "pagination": {
@@ -187,10 +184,12 @@ def list_all_user_subscriptions(
             "limit": params["limit"],
             "total": total,
         },
-    }
+    },
+        message="User subscriptions fetched successfully"
+    )
     
 
-@router.get("/users/{user_id}/subscriptions", response_model=PaginatedResponse[UserSubscriptionResponse])
+@router.get("/users/{user_id}/subscriptions", response_model=APIResponse[PaginatedResponse[UserSubscriptionResponse]])
 def get_user_subscriptions(
     user_id: UUID,
     db: Session = Depends(get_db),
@@ -223,7 +222,6 @@ def get_user_subscriptions(
         .filter(UserSubscription.user_id == user_id)
     )
 
-    # 🔍 SEARCH (by plan name)
     if params["search"]:
         query = query.filter(
             SubscriptionPlan.name.ilike(f"%{params['search']}%")
@@ -268,18 +266,19 @@ def get_user_subscriptions(
         f"Admin fetched subscriptions for user_id={user_id} count={len(subs)}"
     )
 
-    return {
-        "data": [
-            UserSubscriptionResponse(
-                id=s.id,
-                user_id=s.user_id,
-                plan_id=s.plan_id,
-                plan_name=s.plan.name,
-                pricing_country_code=s.pricing_country_code,
-                start_date=s.start_date,
-                end_date=s.end_date,
-                reports_used=s.reports_used,
-                is_active=s.is_active,
+    return success_response(
+        data={
+            "data": [
+                UserSubscriptionResponse(
+                    id=s.id,
+                    user_id=s.user_id,
+                    plan_id=s.plan_id,
+                    plan_name=s.plan.name,
+                    pricing_country_code=s.pricing_country_code,
+                    start_date=s.start_date,
+                    end_date=s.end_date,
+                    reports_used=s.reports_used,
+                    is_active=s.is_active,
             )
             for s in subs
         ],
@@ -288,10 +287,12 @@ def get_user_subscriptions(
             "limit": params["limit"],
             "total": total,
         }
-    }
+    },
+        message="User subscriptions fetched successfully"
+    )
 
 
-@router.post("/users/{user_id}/assign-subscription", response_model=UserSubscriptionResponse)
+@router.post("/users/{user_id}/assign-subscription", response_model=APIResponse[UserSubscriptionResponse])
 def assign_subscription_to_user(
     user_id: UUID,
     data: AssignSubscription,
@@ -345,20 +346,23 @@ def assign_subscription_to_user(
         f"user_id={user.id} plan_id={plan.id}"
     )
 
-    return UserSubscriptionResponse(
-        id=sub.id,
-        user_id=sub.user_id,
-        plan_id=sub.plan_id,
-        plan_name=plan.name,
-        pricing_country_code=sub.pricing_country_code,
-        start_date=sub.start_date,
-        end_date=sub.end_date,
-        reports_used=sub.reports_used,
-        is_active=sub.is_active,
+    return success_response(
+        data=UserSubscriptionResponse(
+            id=sub.id,
+            user_id=sub.user_id,
+            plan_id=sub.plan_id,
+            plan_name=plan.name,
+            pricing_country_code=sub.pricing_country_code,
+            start_date=sub.start_date,
+            end_date=sub.end_date,
+            reports_used=sub.reports_used,
+            is_active=sub.is_active,
+        ),
+        message="Subscription assigned successfully"
     )
 
 
-@router.patch("/user-subscriptions/{subscription_id}")
+@router.patch("/user-subscriptions/{subscription_id}", response_model=APIResponse[dict])
 def update_user_subscription(
     subscription_id: UUID,
     data: UpdateSubscription,
@@ -401,10 +405,13 @@ def update_user_subscription(
         f"changes={changes}"
     )
 
-    return {"message": "Subscription updated successfully"}
+    return success_response(
+        data={},
+        message="Subscription updated successfully"
+    )
 
 
-@router.post("/user-subscriptions/{subscription_id}/cancel")
+@router.post("/user-subscriptions/{subscription_id}/cancel", response_model=APIResponse[dict])
 def cancel_subscription(
     subscription_id: UUID,
     db: Session = Depends(get_db),
@@ -431,4 +438,7 @@ def cancel_subscription(
     
     logger.info(f"Subscription cancelled sub_id={subscription_id}")
 
-    return {"message": "Subscription cancelled"}
+    return success_response(
+        data={},
+        message="Subscription cancelled successfully"
+    )

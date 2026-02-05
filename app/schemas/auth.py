@@ -6,6 +6,10 @@ class UserLogin(BaseModel):
     password: str
 
 
+class GoogleLogin(BaseModel):
+    id_token: str
+
+
 class AdminLogin(BaseModel):
     email: EmailStr
     password: str

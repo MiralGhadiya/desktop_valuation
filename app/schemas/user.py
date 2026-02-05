@@ -28,7 +28,7 @@ class UserProfile(BaseModel):
     username: str
     email: Optional[EmailStr]
     mobile_number: str
-    country: str
+    country: Optional[str]
     role: str
 
     class Config:

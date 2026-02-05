@@ -13,8 +13,8 @@ class Country(UUIDPrimaryKeyMixin, Base):
     __tablename__ = "countries"
 
     name = Column(String, nullable=False)
-    country_code = Column(String, index=True)  # IN, US
+    country_code = Column(String, index=True) 
     dial_code = Column(String)
-    currency_code = Column(String, nullable=True)  # INR, USD
+    currency_code = Column(String, nullable=True)  
     
     users = relationship("User", back_populates="country")

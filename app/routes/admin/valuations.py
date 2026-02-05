@@ -18,6 +18,7 @@ from app.common import PaginatedResponse
 from app.deps import pagination_params
 
 from app.utils.date_filters import filter_by_date_range
+from app.utils.response import APIResponse, success_response
 
 from app.utils.logger_config import app_logger as logger
 
@@ -28,7 +29,7 @@ router = APIRouter(
 )
 
 
-@router.get("/valuations", response_model=PaginatedResponse[ValuationResponse])
+@router.get("/valuations", response_model=APIResponse[PaginatedResponse[ValuationResponse]])
 def list_valuations(
     db: Session = Depends(get_db),
     _: None = Depends(require_superuser),
@@ -115,17 +116,20 @@ def list_valuations(
         f"Admin fetched valuations count={len(valuations)} total={total}"
     )
 
-    return {
-        "data": valuations,
-        "pagination": {
-            "page": params["page"],
-            "limit": params["limit"],
-            "total": total,
-        }
-    }
+    return success_response(
+        data={
+            "data": valuations,
+            "pagination": {
+                "page": params["page"],
+                "limit": params["limit"],
+                "total": total,
+            }
+        },
+        message="Valuations fetched successfully"
+    )
 
 
-@router.get("/valuations/{valuation_id}", response_model=ValuationDetailResponse)
+@router.get("/valuations/{valuation_id}", response_model=APIResponse[ValuationDetailResponse])
 def get_valuation_details(
     valuation_id: str,
     db: Session = Depends(get_db),
@@ -140,10 +144,13 @@ def get_valuation_details(
         logger.warning(f"Valuation not found valuation_id={valuation_id}")
         raise HTTPException(404, "Valuation not found")
 
-    return valuation
+    return success_response(
+        data=valuation,
+        message="Valuation details fetched successfully"
+    )
 
 
-@router.get("/users/{user_id}/valuations", response_model=PaginatedResponse[ValuationResponse])
+@router.get("/users/{user_id}/valuations", response_model=APIResponse[PaginatedResponse[ValuationResponse]])
 def get_user_valuations(
     user_id: UUID,
     db: Session = Depends(get_db),
@@ -183,17 +190,20 @@ def get_user_valuations(
         .all()
     )
 
-    return {
-        "data": valuations,
-        "pagination": {
-            "page": params["page"],
-            "limit": params["limit"],
-            "total": total,
-        }
-    }
-    
+    return success_response(
+        data={
+            "data": valuations,
+            "pagination": {
+                "page": params["page"],
+                "limit": params["limit"],
+                "total": total,
+            }
+        },
+        message="User valuations fetched successfully"
+    )
 
-@router.delete("/valuations/{valuation_id}/delete")
+
+@router.delete("/valuations/{valuation_id}/delete", response_model=APIResponse[dict])
 def delete_valuation(
     valuation_id: str,
     db: Session = Depends(get_db),
@@ -219,4 +229,7 @@ def delete_valuation(
     
     logger.info(f"Valuation deleted valuation_id={valuation_id}")
 
-    return {"message": "Valuation deleted successfully"}
+    return success_response(
+        data={},
+        message="Valuation deleted successfully"
+    )

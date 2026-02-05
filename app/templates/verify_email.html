@@ -1,0 +1,342 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% if success %}Email Verified{% else %}Verification Failed{% endif %} - Your App Name</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', sans-serif;
+            background: linear-gradient(135deg, #f3f6f5 0%, #e8efed 100%);
+            min-height: 100vh;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .container {
+            width: 100%;
+            max-width: 480px;
+        }
+        
+        .logo {
+            text-align: center;
+            margin-bottom: 32px;
+        }
+        
+        .logo h1 {
+            color: #00332B;
+            font-size: 24px;
+            font-weight: 700;
+            letter-spacing: -0.5px;
+        }
+        
+        .card {
+            background: white;
+            padding: 48px;
+            border-radius: 16px;
+            box-shadow: 0 4px 6px rgba(0, 51, 43, 0.04), 
+                        0 12px 24px rgba(0, 51, 43, 0.08);
+            border: 1px solid rgba(0, 51, 43, 0.06);
+        }
+        
+        .status-icon {
+            width: 80px;
+            height: 80px;
+            margin: 0 auto 28px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+        }
+        
+        .status-icon::before {
+            content: '';
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            border-radius: 50%;
+            opacity: 0.15;
+        }
+        
+        .success-icon {
+            background: linear-gradient(135deg, #d4edda 0%, #c3e6cb 100%);
+        }
+        
+        .success-icon::before {
+            background: #28a745;
+        }
+        
+        .success-icon svg {
+            width: 42px;
+            height: 42px;
+            stroke: #28a745;
+        }
+        
+        .error-icon {
+            background: linear-gradient(135deg, #f8d7da 0%, #f5c6cb 100%);
+        }
+        
+        .error-icon::before {
+            background: #dc3545;
+        }
+        
+        .error-icon svg {
+            width: 42px;
+            height: 42px;
+            stroke: #dc3545;
+        }
+        
+        h2 {
+            color: #00332B;
+            font-size: 26px;
+            margin-bottom: 12px;
+            font-weight: 700;
+            text-align: center;
+            letter-spacing: -0.3px;
+        }
+        
+        .message {
+            color: #5a6c68;
+            font-size: 16px;
+            line-height: 1.6;
+            margin-bottom: 32px;
+            text-align: center;
+        }
+        
+        .success-details {
+            background: #f0f9f4;
+            border-left: 4px solid #28a745;
+            padding: 16px 20px;
+            border-radius: 8px;
+            margin-bottom: 32px;
+        }
+        
+        .success-details p {
+            color: #00332B;
+            font-size: 14px;
+            line-height: 1.5;
+            margin: 0;
+        }
+        
+        .error-details {
+            background: #fff5f5;
+            border-left: 4px solid #dc3545;
+            padding: 16px 20px;
+            border-radius: 8px;
+            margin-bottom: 32px;
+        }
+        
+        .error-details p {
+            color: #00332B;
+            font-size: 14px;
+            line-height: 1.5;
+            margin: 0;
+        }
+        
+        .error-details p strong {
+            display: block;
+            margin-bottom: 4px;
+            color: #dc3545;
+        }
+        
+        .action-buttons {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+        
+        .btn {
+            display: inline-block;
+            padding: 16px 28px;
+            text-decoration: none;
+            font-weight: 600;
+            font-size: 15px;
+            border-radius: 10px;
+            transition: all 0.2s ease;
+            text-align: center;
+            cursor: pointer;
+            border: none;
+        }
+        
+        .btn-primary {
+            background: #00332B;
+            color: white;
+            box-shadow: 0 2px 4px rgba(0, 51, 43, 0.2);
+        }
+        
+        .btn-primary:hover {
+            background: #004d3f;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0, 51, 43, 0.3);
+        }
+        
+        .btn-primary:active {
+            transform: translateY(0);
+            box-shadow: 0 2px 4px rgba(0, 51, 43, 0.2);
+        }
+        
+        .btn-secondary {
+            background: white;
+            color: #00332B;
+            border: 2px solid #d1ddd9;
+        }
+        
+        .btn-secondary:hover {
+            background: #f9fafa;
+            border-color: #00332B;
+        }
+        
+        .help-text {
+            margin-top: 32px;
+            padding-top: 24px;
+            border-top: 1px solid #e8efed;
+            text-align: center;
+        }
+        
+        .help-text p {
+            color: #7a8c87;
+            font-size: 14px;
+            margin-bottom: 8px;
+        }
+        
+        .help-text a {
+            color: #00332B;
+            text-decoration: none;
+            font-weight: 600;
+        }
+        
+        .help-text a:hover {
+            text-decoration: underline;
+        }
+        
+        .footer {
+            text-align: center;
+            margin-top: 32px;
+            color: #7a8c87;
+            font-size: 13px;
+        }
+        
+        .footer a {
+            color: #00332B;
+            text-decoration: none;
+        }
+        
+        .footer a:hover {
+            text-decoration: underline;
+        }
+
+        .redirect-notice {
+            background: #fff8e6;
+            border: 1px solid #ffd966;
+            padding: 12px 16px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        
+        .redirect-notice svg {
+            width: 20px;
+            height: 20px;
+            stroke: #cc9900;
+            flex-shrink: 0;
+        }
+        
+        .redirect-notice p {
+            color: #7a6100;
+            font-size: 14px;
+            margin: 0;
+            text-align: left;
+        }
+        
+        @media (max-width: 480px) {
+            .card {
+                padding: 36px 28px;
+            }
+            
+            h2 {
+                font-size: 22px;
+            }
+            
+            .status-icon {
+                width: 70px;
+                height: 70px;
+            }
+            
+            .status-icon svg {
+                width: 36px;
+                height: 36px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="logo">
+            <h1>Desktop Valuation</h1>
+        </div>
+        
+        <div class="card">
+            {% if success %}
+                <div class="status-icon success-icon">
+                    <svg fill="none" stroke-linecap="round" stroke-linejoin="round" stroke-width="3" viewBox="0 0 24 24">
+                        <path d="M20 6L9 17l-5-5"></path>
+                    </svg>
+                </div>
+                
+                <h2>Email Verified Successfully!</h2>
+                <p class="message">Your email address has been confirmed. You're all set to start using your account.</p>
+                
+                <div class="success-details">
+                    <p>✓ Your account is now fully activated<br>
+                    ✓ You can access all features</p>
+                </div>
+                
+                <div class="action-buttons">
+                    <a href="{{ frontend_url }}" class="btn btn-primary">Continue to Login</a>
+                </div>
+                
+            {% else %}
+                <div class="status-icon error-icon">
+                    <svg fill="none" stroke-linecap="round" stroke-linejoin="round" stroke-width="3" viewBox="0 0 24 24">
+                        <line x1="18" y1="6" x2="6" y2="18"></line>
+                        <line x1="6" y1="6" x2="18" y2="18"></line>
+                    </svg>
+                </div>
+                
+                <h2>Verification Failed</h2>
+                <p class="message">We couldn't verify your email address.</p>
+                
+                <div class="error-details">
+                    <p><strong>Error:</strong> {{ message|default("The verification link is invalid or has expired.") }}</p>
+                </div>
+                
+                <div class="action-buttons">
+                    <a href="{{ frontend_url }}/resend-verification" class="btn btn-primary">Resend Verification Email</a>
+                    <a href="{{ frontend_url }}" class="btn btn-secondary">Back to Login</a>
+                </div>
+            {% endif %}
+            
+            <div class="help-text">
+                <p>Need help?</p>
+                <a href="{{ frontend_url }}/support">Contact Support</a>
+            </div>
+        </div>
+        
+        <div class="footer">
+            <p>&copy; Desktop_Valuation. All rights reserved. | <a href="{{ frontend_url }}/privacy">Privacy Policy</a> | <a href="{{ frontend_url }}/terms">Terms of Service</a></p>
+        </div>
+    </div>
+</body>
+</html>

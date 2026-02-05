@@ -13,6 +13,8 @@ from app.schemas import SubscriptionPlanResponse, SubscriptionPlanCreate, Subscr
 
 from app.common import PaginatedResponse
 from app.deps import pagination_params
+
+from app.utils.response import APIResponse, success_response
 from app.utils.date_filters import filter_by_date_range
 
 from app.utils.logger_config import app_logger as logger
@@ -56,7 +58,7 @@ class SubscriptionPlanFilters:
         self.category = category
         
 
-@router.get("", response_model=PaginatedResponse[SubscriptionPlanResponse])
+@router.get("", response_model=APIResponse[PaginatedResponse[SubscriptionPlanResponse]])
 def list_subscription_plans(
     db: Session = Depends(get_db),
     _: None = Depends(require_superuser),
@@ -136,17 +138,20 @@ def list_subscription_plans(
 
     logger.debug(f"Admin subscription plans fetched count={len(plans)}")
 
-    return {
-        "data": plans,
-        "pagination": {
-            "page": params["page"],
-            "limit": params["limit"],
-            "total": total,
+    return success_response(
+        data={
+            "data": plans,
+            "pagination": {
+                "page": params["page"],
+                "limit": params["limit"],
+                "total": total,
         }
-    }
+    },
+        message="Subscription plans fetched"
+    )
     
     
-@router.get("/{plan_id}", response_model=SubscriptionPlanResponse)
+@router.get("/{plan_id}", response_model=APIResponse[SubscriptionPlanResponse])
 def get_subscription_plan(
     plan_id: UUID,
     db: Session = Depends(get_db),
@@ -162,10 +167,10 @@ def get_subscription_plan(
         logger.warning(f"{SUBSCRIPTION_PLAN_NOT_FOUND} plan_id={plan_id}")
         raise HTTPException(404, SUBSCRIPTION_PLAN_NOT_FOUND)
 
-    return plan
+    return success_response(data=plan, message="Subscription plan fetched")
 
 
-@router.post("", response_model=SubscriptionPlanResponse)
+@router.post("", response_model=APIResponse[SubscriptionPlanResponse])
 def create_subscription_plan(
     data: SubscriptionPlanCreate,
     db: Session = Depends(get_db),
@@ -196,10 +201,10 @@ def create_subscription_plan(
     
     logger.info(f"Subscription plan created plan_id={plan.id}")
 
-    return plan
+    return success_response(data=plan, message="Subscription plan created")
 
 
-@router.put("/{plan_id}", response_model=SubscriptionPlanResponse)
+@router.put("/{plan_id}", response_model=APIResponse[SubscriptionPlanResponse])
 def update_subscription_plan(
     plan_id: UUID,
     data: SubscriptionPlanUpdate,
@@ -234,11 +239,10 @@ def update_subscription_plan(
         f"fields={list(updates.keys())}"
     )
 
+    return success_response(data=plan, message="Subscription plan updated")
 
-    return plan
 
-
-@router.patch("/{plan_id}/toggle")
+@router.patch("/{plan_id}/toggle", response_model=APIResponse[dict])
 def toggle_subscription_plan(
     plan_id: UUID,
     db: Session = Depends(get_db),
@@ -267,7 +271,7 @@ def toggle_subscription_plan(
         f"is_active={plan.is_active}"
     )
 
-    return {
-        "message": "Plan status updated",
-        "is_active": plan.is_active
-    }
+    return success_response(
+        data={"is_active": plan.is_active},
+        message="Plan status updated"
+    )

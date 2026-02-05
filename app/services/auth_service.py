@@ -66,7 +66,7 @@ def revoke_refresh_token(db, user_id: UUID, refresh_token: str, pwd_context):
         db.query(RefreshToken)
         .filter(
             RefreshToken.user_id == user_id,
-            RefreshToken.is_revoked == False,
+            RefreshToken.revoked == False,
         )
         .all()
     )
@@ -74,7 +74,7 @@ def revoke_refresh_token(db, user_id: UUID, refresh_token: str, pwd_context):
     try:
         for token in tokens:
             if pwd_context.verify(refresh_token, token.token_hash):
-                token.is_revoked = True
+                token.revoked = True
                 db.commit()
                 return True
     except Exception:

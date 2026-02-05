@@ -31,7 +31,7 @@ def build_report_context(ai_json, user_input):
         "car_parking": "Available",
         "ownership_type": "Freehold",
         "occupancy": "Owner Occupied",
-        "local_authority": ai_json["property_details"]["city"].title(),
+        "local_authority": ai_json["property_details"].get("city", "N/A"),
         "last_sale_date": "N/A",
         "last_sale_price": "N/A",
         "customer_estimate": user_input.get("estimated_market_value", "N/A")

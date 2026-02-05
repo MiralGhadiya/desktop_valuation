@@ -34,3 +34,11 @@ def create_country(db: Session, name: str, dial_code: str, country_code: str):
         raise
 
     return country
+
+
+def get_country_by_country_code(db: Session, country_code: str):
+    logger.debug(f"Looking up country by country_code={country_code}")
+
+    return db.query(Country).filter(
+        Country.country_code == country_code
+    ).first()

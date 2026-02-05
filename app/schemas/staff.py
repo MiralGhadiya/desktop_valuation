@@ -18,12 +18,9 @@ class StaffLogin(BaseModel):
 class StaffCreate(StaffBase):
     can_access_user: bool = False
     can_access_staff: bool = False
-    can_access_property: bool = False
-
-    can_add_property: bool = False
-    can_edit_property: bool = False
-    can_delete_property: bool = False
-    can_unlist_property: bool = False
+    can_access_dashboard: bool = False
+    can_access_reports: bool = False
+    can_access_subscriptions_plans: bool = False
 
 
 class StaffUpdate(BaseModel):
@@ -34,11 +31,9 @@ class StaffUpdate(BaseModel):
     role: Optional[str] = None
     can_access_user: Optional[bool] = None
     can_access_staff: Optional[bool] = None
-    can_access_property: Optional[bool] = None
-    can_add_property: Optional[bool] = None
-    can_edit_property: Optional[bool] = None
-    can_delete_property: Optional[bool] = None
-    can_unlist_property: Optional[bool] = None
+    can_access_dashboard: Optional[bool] = None
+    can_access_reports: Optional[bool] = None
+    can_access_subscriptions_plans: Optional[bool] = None
 
 
 class StaffResponse(BaseModel):

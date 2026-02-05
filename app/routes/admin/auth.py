@@ -5,9 +5,11 @@ from fastapi import APIRouter, Depends, HTTPException
 
 from app.models import User
 from app.services import auth_service
+from app.schemas.admin import AdminTokenResponse
 from app.schemas import AdminLogin, AdminProfile, ChangePassword
 
 from app.deps import get_db, require_superuser
+from app.utils.response import APIResponse, success_response
 from app.auth import verify_password, create_access_token, hash_password
 
 from app.utils.logger_config import app_logger as logger
@@ -19,56 +21,48 @@ router = APIRouter(
 )
 
 
-@router.post("/login")
+@router.post(
+    "/login",
+    response_model=APIResponse[AdminTokenResponse]
+)
 def admin_login(
     data: AdminLogin,
     db: Session = Depends(get_db),
 ):
     logger.info(f"Admin login attempt email={data.email}")
 
-    user = db.query(User).filter(
-        User.email == data.email
-    ).first()
+    user = db.query(User).filter(User.email == data.email).first()
 
     if not user or not user.is_superuser:
-        logger.warning(f"Admin access denied email={data.email}")
-        raise HTTPException(
-            status_code=403,
-            detail="Admin access denied"
-        )
+        raise HTTPException(status_code=403, detail="Admin access denied")
 
     if not verify_password(data.password, user.hashed_password):
-        logger.warning(f"Invalid admin password email={data.email}")
-        raise HTTPException(
-            status_code=401,
-            detail="Invalid credentials"
-        )
+        raise HTTPException(status_code=401, detail="Invalid credentials")
 
     if not user.is_active:
-        logger.warning(f"Inactive admin login attempt user_id={user.id}")
-        raise HTTPException(
-            status_code=403,
-            detail="Admin account disabled"
-        )
+        raise HTTPException(status_code=403, detail="Admin account disabled")
 
     access_token = create_access_token(
         {"sub": str(user.id), "role": "superuser"}
     )
-    
+
     logger.info(f"Admin login successful user_id={user.id}")
 
-    return {
-        "access_token": access_token,
-        "token_type": "bearer"
-    }
+    return success_response(
+        data={
+            "access_token": access_token,
+            "token_type": "bearer",
+        },
+        message="Admin login successful"
+    )
+    
 
-
-@router.get("/me", response_model=AdminProfile)
+@router.get("/me", response_model=APIResponse[AdminProfile])
 def admin_me(
     current_admin: User = Depends(require_superuser),
 ):
     logger.debug(f"Admin profile fetched user_id={current_admin.id}")
-    return current_admin
+    return success_response(data=current_admin, message="Admin profile fetched successfully")
 
 
 @router.post("/logout")
@@ -82,7 +76,10 @@ def admin_logout(
         logger.exception("Admin logout failed")
         raise HTTPException(500, "Logout failed")
 
-    return {"message": "Admin logged out successfully"}
+    return success_response(
+        data=None,
+        message="Admin logged out successfully"
+    )
 
 
 @router.post("/change-password")
@@ -122,4 +119,7 @@ def admin_change_password(
         
     logger.info(f"Admin password changed user_id={current_admin.id}")
 
-    return {"message": "Admin password changed successfully"}
+    return success_response(
+        data=None,
+        message="Password changed successfully"
+    )

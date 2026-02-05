@@ -18,13 +18,9 @@ class Staff(Base):
     
     can_access_user = Column(Boolean, default=False)  # User Access
     can_access_staff = Column(Boolean, default=False)  # Staff Access
-    can_access_property = Column(Boolean, default=False)  # Property Access
-
-    # Access Permissions
-    can_add_property = Column(Boolean, default=False)
-    can_edit_property = Column(Boolean, default=False)
-    can_delete_property = Column(Boolean, default=False)
-    can_unlist_property = Column(Boolean, default=False)
+    can_access_dashboard = Column(Boolean, default=False)  # Dashboard Access
+    can_access_reports = Column(Boolean, default=False)  # Reports Access
+    can_access_subscriptions_plans = Column(Boolean, default=False)  # Subscriptions & Plans Access
 
     # Relationship with user table if needed
     user_id = Column(UUID(as_uuid=True), ForeignKey("users.id"))

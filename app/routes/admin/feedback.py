@@ -1,5 +1,6 @@
 #app/routes/admin/feedback.py
 
+from uuid import UUID
 from sqlalchemy import or_
 from typing import Optional
 from sqlalchemy.orm import Session
@@ -10,7 +11,10 @@ from app.models.feedback_message import FeedbackMessage
 from app.schemas import FeedbackResponse, AdminFeedbackAction
 
 from app.common import PaginatedResponse
+
 from app.utils.email import send_feedback_reply_email
+from app.utils.response import APIResponse, success_response
+
 from app.deps import get_db, require_superuser, pagination_params
 
 from app.utils.logger_config import app_logger as logger
@@ -22,10 +26,9 @@ router = APIRouter(
 )
 
 
-@router.get(
-    "",
-    response_model=PaginatedResponse[FeedbackResponse]
-)
+@router.get("",
+            response_model=APIResponse[PaginatedResponse[FeedbackResponse]]
+        )
 def list_feedback(
     db: Session = Depends(get_db),
     _: None = Depends(require_superuser),
@@ -87,19 +90,22 @@ def list_feedback(
         f"Admin fetched feedback count={len(feedbacks)} total={total}"
     )
 
-    return {
+    return success_response(
+        data={
         "data": feedbacks,
         "pagination": {
             "page": params["page"],
             "limit": params["limit"],
             "total": total,
         },
-    }
+    },
+        message="Feedback list fetched successfully"
+    )
 
 
-@router.post("/{feedback_id}/action")
+@router.post("/{feedback_id}/action", response_model=APIResponse[dict])
 def admin_feedback_action(
-    feedback_id: int,
+    feedback_id: UUID,
     data: AdminFeedbackAction,
     db: Session = Depends(get_db),
     _: None = Depends(require_superuser),
@@ -140,15 +146,17 @@ def admin_feedback_action(
             reply=data.reply,
         )
 
-    return {
-        "message": "Feedback updated successfully",
-        "email_sent": did_reply and data.notify_user,
-    }
+    return success_response(
+        data={
+            "email_sent": did_reply and data.notify_user,
+        },
+        message="Feedback updated successfully"
+    )
 
 
-@router.get("/{feedback_id}", response_model=FeedbackResponse)
+@router.get("/{feedback_id}", response_model=APIResponse[FeedbackResponse])
 def get_feedback_by_id(
-    feedback_id: int,
+    feedback_id: UUID,
     db: Session = Depends(get_db),
     _: None = Depends(require_superuser),
 ):
@@ -159,11 +167,12 @@ def get_feedback_by_id(
     if not feedback:
         raise HTTPException(404, "Feedback not found")
 
-    return feedback
+    return success_response(data=feedback, message="Feedback retrieved successfully")
+
 
 @router.delete("/{feedback_id}")
 def delete_feedback(
-    feedback_id: int,
+    feedback_id: UUID,
     db: Session = Depends(get_db),
     _: None = Depends(require_superuser),
 ):
@@ -177,4 +186,4 @@ def delete_feedback(
     db.delete(feedback)
     db.commit()
 
-    return {"message": "Feedback deleted successfully"}
+    return success_response(message="Feedback deleted successfully")

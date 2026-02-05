@@ -1,5 +1,7 @@
 #app/router/admin/users.py
 
+import os
+import secrets
 from uuid import UUID
 from sqlalchemy import or_
 from typing import Optional
@@ -7,17 +9,21 @@ from sqlalchemy.orm import Session
 from datetime import datetime, timedelta, timezone
 from fastapi import APIRouter, Depends, HTTPException, Query
 
-from app.auth import hash_password
-from app.deps import pagination_params
-from app.deps import get_db, require_superuser
+from app.auth import hash_password, pwd_context
+from app.deps import pagination_params, get_db, require_superuser
 
-from app.models import User
-from app.models.staff import Staff
-from app.services import auth_service
+from app.models import User, EmailVerificationToken
+from app.services import auth_service, country_service
+
+from app.schemas.admin import AdminUserUpdate
 from app.schemas import AdminUserResponse, AdminResetPassword
+
 from app.common import PaginatedResponse
 
+from app.utils.email import send_verification_email
+from app.utils.phone import get_country_from_mobile
 from app.utils.date_filters import filter_by_date_range
+from app.utils.response import APIResponse, success_response
 
 from app.utils.logger_config import app_logger as logger
 
@@ -27,10 +33,11 @@ router = APIRouter(
     tags=["admin-users"]
 )
 
+BASE_URL = os.getenv("BASE_URL", "http://localhost:8000")
 
 USER_NOT_FOUND = "User not found"
 
-@router.get("", response_model=PaginatedResponse[AdminUserResponse])
+@router.get("", response_model=APIResponse[PaginatedResponse[AdminUserResponse]])
 def list_users(
     db: Session = Depends(get_db),
     admin_user: User = Depends(require_superuser),  
@@ -53,7 +60,6 @@ def list_users(
         f"search={params['search']}"
     )
     
-
     query = db.query(User)
     
     if params["search"]:
@@ -87,7 +93,6 @@ def list_users(
         )
 
     else:
-        # apply range only if at least one bound exists
         if verified_from or verified_to:
             query = query.filter(
                 User.email_verified_at.isnot(None)
@@ -129,17 +134,20 @@ def list_users(
         f"Admin fetched users count={len(users)} total={total}"
     )
 
-    return {
-        "data": users,
-        "pagination": {
-            "page": params["page"],
-            "limit": params["limit"],
-            "total": total,
-        }
-    }
+    return success_response(
+    data={
+            "data": users,
+            "pagination": {
+                "page": params["page"],
+                "limit": params["limit"],
+                "total": total,
+            }
+        },
+        message="User list fetched successfully"
+    )
+    
 
-
-@router.get("/{user_id}", response_model=AdminUserResponse)
+@router.get("/{user_id}", response_model=APIResponse[AdminUserResponse])
 def get_user(
     user_id: UUID,
     db: Session = Depends(get_db),
@@ -155,10 +163,110 @@ def get_user(
         logger.warning(f"{USER_NOT_FOUND} user_id={user_id}")
         raise HTTPException(404, USER_NOT_FOUND)
 
-    return user
+    return success_response(
+        data=user,
+        message="User fetched successfully"
+    )
 
 
-@router.patch("/{user_id}/toggle-active")
+@router.patch("/{user_id}", response_model=APIResponse[AdminUserResponse])
+def update_user(
+    user_id: UUID,
+    data: AdminUserUpdate,
+    db: Session = Depends(get_db),
+    _: User = Depends(require_superuser),
+):
+    logger.info(f"Admin updating user user_id={user_id}")
+
+    user = db.query(User).filter(User.id == user_id).first()
+    if not user:
+        raise HTTPException(404, USER_NOT_FOUND)
+
+    if data.username and data.username != user.username:
+        user.username = data.username
+
+    if data.email and data.email != user.email:
+        existing_email = db.query(User).filter(
+            User.email == data.email,
+            User.id != user.id
+        ).first()
+
+        if existing_email:
+            raise HTTPException(400, "Email already in use")
+
+        # Update email + reset verification
+        user.email = data.email
+        user.is_email_verified = False
+        user.email_verified_at = None
+
+        # Invalidate old verification tokens
+        db.query(EmailVerificationToken).filter(
+            EmailVerificationToken.user_id == user.id,
+            EmailVerificationToken.used == False
+        ).update({"used": True})
+
+        # Create new verification token
+        raw_token = secrets.token_urlsafe(48)
+        verification = EmailVerificationToken(
+            user_id=user.id,
+            token_hash=pwd_context.hash(raw_token),
+            expires_at=datetime.now(timezone.utc) + timedelta(minutes=30),
+        )
+        db.add(verification)
+
+        # Send verification email
+        try:
+            send_verification_email(
+                user.email,
+                f"{BASE_URL}/verify-email?token={raw_token}"
+            )
+        except Exception:
+            logger.exception(
+                f"Failed to send verification email after admin update user_id={user.id}"
+            )
+
+    if data.mobile_number and data.mobile_number != user.mobile_number:
+        existing_mobile = db.query(User).filter(
+            User.mobile_number == data.mobile_number,
+            User.id != user.id
+        ).first()
+
+        if existing_mobile:
+            raise HTTPException(400, "Mobile number already in use")
+
+        user.mobile_number = data.mobile_number
+
+        dial_code, country_code = get_country_from_mobile(data.mobile_number)
+
+        country = country_service.get_country_by_dial_code(db, dial_code)
+        if not country:
+            country = country_service.create_country(
+                db,
+                name=country_code,
+                dial_code=dial_code,
+                country_code=country_code
+            )
+
+        user.country_id = country.id
+
+    if data.role and data.role != user.role:
+        user.role = data.role
+
+    try:
+        db.commit()
+        db.refresh(user)
+    except Exception:
+        db.rollback()
+        logger.exception("Failed to update user")
+        raise HTTPException(500, "User update failed")
+
+    return success_response(
+        data=user,
+        message="User updated successfully"
+    )
+
+
+@router.patch("/{user_id}/toggle-active", response_model=APIResponse[dict])
 def toggle_user_active(
     user_id: UUID,
     db: Session = Depends(get_db),
@@ -186,11 +294,13 @@ def toggle_user_active(
     else:
         logger.info(f"User activated user_id={user.id}")
 
-    return {
-        "message": "User status updated",
-        "is_active": user.is_active
-    }
-
+    return success_response(
+        data={
+            "is_active": user.is_active
+        },
+        message="User active state updated successfully"
+    )
+    
 
 @router.post("/{user_id}/logout")
 def force_logout_user(
@@ -210,10 +320,12 @@ def force_logout_user(
     
     logger.info(f"User logged out from all sessions user_id={user.id}")
 
-    return {"message": "User logged out from all sessions"}
+    return {
+        "success": True,
+        "message":"User logged out from all sessions"
+    }
 
 
-# ----- MANUAL EMAIL VERIFY -----
 @router.post("/{user_id}/verify-email")
 def verify_user_email(
     user_id: UUID,
@@ -230,7 +342,10 @@ def verify_user_email(
 
     if user.is_email_verified:
         logger.info(f"Email already verified user_id={user_id}")
-        return {"message": "Email already verified"}
+        return {
+            "success": False,
+            "message": "User email is already verified"
+        }
     
     try:
         user.is_email_verified = True
@@ -243,10 +358,13 @@ def verify_user_email(
     
     logger.info(f"User email verified user_id={user_id}")
 
-    return {"message": "User email verified"}
+    return {
+        "success": True,
+        "message": "User email verified successfully"
+    }
 
 
-@router.post("/{user_id}/reset-password")
+@router.post("/{user_id}/reset-password", response_model=APIResponse[dict])
 def admin_reset_password(
     user_id: UUID,
     data: AdminResetPassword,
@@ -280,4 +398,7 @@ def admin_reset_password(
     
     logger.info(f"User password reset and sessions revoked user_id={user.id}")
 
-    return {"message": "User password reset successfully"}
+    return success_response(
+        data={},
+        message="User password reset successfully"
+    )
