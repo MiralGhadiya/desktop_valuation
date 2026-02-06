@@ -1,5 +1,5 @@
 # ======================
-# Python / Virtual Env
+# Python / Virtual Envs
 # ======================
 venv/
 .venv/
@@ -21,12 +21,24 @@ __pycache__/
 *.secret
 
 # ======================
-# Database / Runtime
+# Database / Runtime / Generated
 # ======================
 generated_reports/
 uploads/
+backup.sql
+*.zip
+
 *.sqlite3
 *.db
+
+# ======================
+# Celery
+# ======================
+celerybeat-schedule
+celerybeat-schedule.*
+celerybeat-schedule.bak
+celerybeat-schedule.dat
+celerybeat-schedule.dir
 
 # ======================
 # Alembic
@@ -73,6 +85,6 @@ dist/
 *.egg-info/
 
 # ======================
-# LLM / AI cache (optional)
+# LLM / Cache
 # ======================
 .cache/

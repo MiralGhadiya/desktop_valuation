@@ -370,6 +370,8 @@ def get_valuation(
         "country_code": valuation.country_code,
         "user_fields": valuation.user_fields,
         "ai_response": valuation.ai_response,
+        "report_context": valuation.report_context,
+        "pdf_url": f"/valuation/{valuation.valuation_id}/download",
         "created_at": valuation.created_at,
     }
     
@@ -427,9 +429,34 @@ def get_job_status(
     if not job:
         raise HTTPException(404, "Job not found")
 
+    if job.status != "completed":
+        return {
+            "job_id": job.id,
+            "status": job.status,
+            "error": job.error_message,
+        }
+
+    valuation = (
+        db.query(ValuationReport)
+        .filter(
+            ValuationReport.valuation_id == job.valuation_id,
+            ValuationReport.user_id == current_user.id,
+        )
+        .first()
+    )
+
+    if not valuation:
+        raise HTTPException(404, "Valuation not found")
+
     return {
         "job_id": job.id,
-        "status": job.status,
-        "valuation_id": job.valuation_id,
-        "error": job.error_message,
+        "status": "completed",
+        "valuation_id": valuation.valuation_id,
+
+        # 👇 FRONTEND CONSUMES THESE
+        "user_fields": valuation.user_fields,
+        "ai_response": valuation.ai_response,
+        "report_context": valuation.report_context,
+
+        "pdf_url": f"/valuation/{valuation.valuation_id}/download",
     }

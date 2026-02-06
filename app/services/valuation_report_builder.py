@@ -1,180 +1,198 @@
-import uuid
+# app/services/valuation_report_builder.py
+
 from datetime import datetime
 
 
 def build_report_context(ai_json, user_input):
-
-    # -------- PROPERTY IDENTIFICATION --------
-    property_identification = {
-        "property_address": ai_json["property_details"]["address"],
-        "valuation_id": f"DVP-{uuid.uuid4().hex[:8].upper()}",
-        "date_of_report": datetime.now().strftime("%d-%b-%Y"),
-        "purpose_of_valuation": user_input["purpose_of_valuation"],
-        "report_type": "Desktop Valuation (No Physical Inspection)",
-        "client_name": user_input["full_name"],
-        "contact_information": {
-            "email": user_input["email"],
-            "phone": user_input["contact_number"]
-        }
-    }
-
-    # -------- PROPERTY SUMMARY --------
-    property_summary = {
-        "property_type": ai_json["property_details"]["property_type"],
-        "land_area": f"{ai_json['property_details']['land_area_sqft']} sqft",
-        "built_up_area": f"{ai_json['property_details']['built_up_area_sqft']} sqft",
-        "zoning": ai_json["property_details"]["zoning"],
-        "title_details": "Not Available",
-        # "construction_year": f"{ai_json['property_details']['age_years']} years old",
-        "construction_year": f"{datetime.now().year - ai_json['property_details']['age_years']}",
-        "structure": "RCC Construction",
-        "car_parking": "Available",
-        "ownership_type": "Freehold",
-        "occupancy": "Owner Occupied",
-        "local_authority": ai_json["property_details"].get("city", "N/A"),
-        "last_sale_date": "N/A",
-        "last_sale_price": "N/A",
-        "customer_estimate": user_input.get("estimated_market_value", "N/A")
-    }
     
-    # property_summary = {
-    #     "property_type": ai_json["property_details"]["property_type"],
-    #     "land_area": f"{user_input.get('land_area_sqft', 'N/A')} sqft",
-    #     "built_up_area": f"{user_input.get('built_up_area_sqft', 'N/A')} sqft",
-    #     "zoning": user_input.get("zoning", "N/A"),
-    #     "title_details": "Not Available",
-    #     "construction_year": f"{user_input.get('age_years', 'N/A')} years old",
-    #     "structure": "RCC Construction",
-    #     "car_parking": "Available",
-    #     "ownership_type": user_input.get("ownership_type", "Freehold"),
-    #     "occupancy": user_input.get("occupancy", "Owner Occupied"),
-    #     "local_authority": user_input.get("city", "N/A"),
-    #     "last_sale_date": "N/A",
-    #     "last_sale_price": "N/A",
-    #     "customer_estimate": user_input.get("estimated_market_value", "N/A")
-    # }
+    built_up_area = (
+        user_input.get("built_up_area_sqft")
+        or ai_json["property_details"].get("built_up_area_sqft")
+    )
 
-
-    # -------- COMPARABLE SALES --------
-    comparable_sales = []
-    for c in ai_json["comparables_used"]:
-        comparable_sales.append({
-            "address": c["address"],
-            "beds": "-",      # AI JSON does not provide beds
-            "baths": "-",     # AI JSON does not provide baths
-            "land_area": c["land_area"],
-            "sale_date": "N/A",
-            "sale_price": c["sale_price"],
-            # "comparison": c["adjustment_reason"],
-            "comparison": (
-                "Superior" if "superior" in c["adjustment_reason"].lower()
-                else "Inferior" if "inferior" in c["adjustment_reason"].lower()
-                else "Comparable"
-            ),
-            "distance": f"{c['distance_km']} km"
-        })
-
-    # -------- COMPARABLE SUMMARY --------
-    
-    prices = [c["sale_price"] for c in ai_json["comparables_used"]]
-
-    average_value = int(sum(prices) / len(prices)) if prices else None
-
-    comparable_analysis_summary = {
-        "average_comparable_value": average_value,
-        "adjusted_subject_estimate": ai_json["predicted_value"]["mid_value"]
-    }
-    # comparable_analysis_summary = {
-    #     "average_comparable_value": ai_json["predicted_value"]["mid_value"],
-    #     "adjusted_subject_estimate": ai_json["predicted_value"]["fair_market_value"]
-    # }
-
-    # -------- THREE-TIER --------
-    three_tier_valuation = {
-        "conservative_value": ai_json["predicted_value"]["low_value"],
-        "mid_range_value": ai_json["predicted_value"]["mid_value"],
-        "high_value": ai_json["predicted_value"]["high_value"]
+    property_details = {
+        "name_of_owner": user_input.get("full_name", "N/A"),
+        "project_name": user_input.get("project_name", "N/A"),
+        "property_address": ai_json["property_details"].get("address", "N/A"),
+        "property_type": ai_json["property_details"].get("property_type", "N/A"),
+        "configuration": (
+            user_input.get("configuration")
+            or ai_json["property_details"].get("configuration")
+            or "N/A"
+        ),
+        "carpet_area_sqft": built_up_area if built_up_area else "N/A",
+        "construction_status": (
+            user_input.get("construction_status")
+            or ai_json["property_details"].get("construction_status")
+            or "N/A"
+        ),
+        "purpose_of_report": user_input.get("purpose_of_valuation", "N/A"),
+        "type_of_valuation": "Desktop Valuation Opinion",
+        "inspection": "No Physical Inspection Conducted",
+        "confidentiality": "Strictly for internal reference",
     }
 
-    # -------- RISK ANALYSIS --------
-    valuation_risk_analysis = {
-        "value_range": f"{ai_json['predicted_value']['low_value']} - {ai_json['predicted_value']['high_value']}",
-        "confidence_index": f"{ai_json['predicted_value']['confidence_score']}%",
-        "market_risk_score": ai_json["bank_lending_model"]["risk_level"],
-        "property_risk_score": "Moderate",
-        "recommended_ltv": ai_json["bank_lending_model"]["recommended_ltv"],
-        "validity": "45 Days"
+    location_identification = {
+        "micro_location": (
+            user_input.get("micro_location")
+            or ai_json["property_details"].get("micro_location")
+            or "N/A"
+        ),
+        "municipal_authority": (
+            user_input.get("municipal_authority")
+            or ai_json["property_details"].get("municipal_authority")
+            or "N/A"
+        ),
+        "connectivity": (
+            user_input.get("connectivity")
+            or ai_json["property_details"].get("connectivity")
+            or "N/A"
+        ),
+        "social_infrastructure": (
+            user_input.get("social_infrastructure")
+            or ai_json["property_details"].get("social_infrastructure")
+            or "N/A"
+        ),
+        "surroundings": (
+            user_input.get("surroundings")
+            or ai_json["property_details"].get("surroundings")
+            or "N/A"
+        ),
+        "zoning": ai_json["property_details"].get("zoning", "N/A"),
+        "demand_profile": (
+            user_input.get("demand_profile")
+            or ai_json["property_details"].get("demand_profile")
+            or "N/A"
+        ),
     }
 
-    # -------- MARKET COMMENTARY --------
-    # market_commentary = ai_json["buy_sell_recommendation"]["reasoning"]
-    market_commentary = ai_json["bank_lending_model"]["reason"]
+    project_profile = {
+        "developer": (
+            user_input.get("developer")
+            or ai_json["property_details"].get("developer")
+            or "N/A"
+        ),
+        "project_positioning": (
+            user_input.get("project_positioning")
+            or ai_json["property_details"].get("project_positioning")
+            or "N/A"
+        ),
+        "towers": (
+            user_input.get("towers")
+            or ai_json["property_details"].get("towers")
+            or "N/A"
+        ),
+        "amenities": (
+            user_input.get("amenities")
+            or ai_json["property_details"].get("amenities")
+            or "N/A"
+        ),
+        "market_perception": (
+            user_input.get("market_perception")
+            or ai_json["property_details"].get("market_perception")
+            or "N/A"
+        ),
+    }
 
-    # -------- SWOT --------
-    # swot_analysis = {
-    #     "strengths": ["Good locality demand", "Stable RCC structure", "Moderate appreciation potential"],
-    #     "weaknesses": ["Property age moderate", "Average liquidity"],
-    #     "opportunities": ["Growing micro-market demand", "Future redevelopment potential"],
-    #     "threats": ["Interest rate fluctuations", "Market corrections"]
-    # }
-    swot_analysis = ai_json.get("swot_analysis", {
-        "strengths": [],
-        "weaknesses": [],
-        "opportunities": [],
-        "threats": []
-    })
+    area_details = {
+        "carpet_area_sqft": built_up_area if built_up_area else "N/A",
+        "layout": (
+            user_input.get("layout")
+            or ai_json["property_details"].get("layout")
+            or "N/A"
+        ),
+        "floor_plan": (
+            user_input.get("floor_plan")
+            or ai_json["property_details"].get("floor_plan")
+            or "N/A"
+        ),
+        "current_usage": (
+            user_input.get("current_usage")
+            or ai_json["property_details"].get("current_usage")
+            or "N/A"
+        ),
+    }
 
-    # -------- FORECAST (5 years) --------
-    # growth = ai_json["forecast"]["growth_rate_percent"] / 100
-    # base = ai_json["predicted_value"]["fair_market_value"]
-    # value_forecast = []
 
-    # for i in range(1, 6):
-    #     projected = int(base * ((1 + growth) ** i))
-    #     value_forecast.append({
-    #         "year": datetime.now().year + i,
-    #         "growth_rate": f"{ai_json['forecast']['growth_rate_percent']}%",
-    #         "forecast_value": projected
-    #     })
-    
-    base = ai_json["predicted_value"]["fair_market_value"]
-    forecast = ai_json["forecast"]
+    market_benchmark = ai_json.get("comparables_used", [])
 
-    growth_rates = [
-        forecast["year_1_growth_percent"],
-        forecast["year_2_growth_percent"],
-        forecast["year_3_growth_percent"],
-        forecast["year_4_growth_percent"],
-        forecast["year_5_growth_percent"],
+    mid_value = ai_json["predicted_value"]["mid_value"]
+    area_for_valuation = built_up_area or 0
+
+    adopted_rate = (
+        int(mid_value / area_for_valuation)
+        if area_for_valuation and area_for_valuation > 0
+        else "N/A"
+    )
+
+    indicative_market_value = {
+        "area_considered_sqft": area_for_valuation,
+        "adopted_market_rate": adopted_rate,
+        "indicative_value": mid_value,
+    }
+    value_range = {
+        "conservative": ai_json["predicted_value"]["low_value"],
+        "mid_range": ai_json["predicted_value"]["mid_value"],
+        "optimistic": ai_json["predicted_value"]["high_value"],
+    }
+
+    nearby_market_evidence = [
+        "Recent transactions in nearby premium projects support the adopted rate",
+        "Strong demand for ready-to-move residential units",
+        "Limited supply of new premium projects in the locality",
+        "Healthy resale and rental absorption observed",
     ]
 
-    value_forecast = []
-    current_value = base
+    forecast = ai_json.get("forecast", {})
+    current_value = ai_json["predicted_value"]["mid_value"]
     current_year = datetime.now().year
+
+    future_outlook = []
+    growth_rates = [
+        forecast.get("year_1_growth_percent", 0),
+        forecast.get("year_2_growth_percent", 0),
+        forecast.get("year_3_growth_percent", 0),
+        forecast.get("year_4_growth_percent", 0),
+        forecast.get("year_5_growth_percent", 0),
+    ]
 
     for i, rate in enumerate(growth_rates, start=1):
         current_value = int(current_value * (1 + rate / 100))
-        value_forecast.append({
+        future_outlook.append({
             "year": current_year + i,
-            "growth_rate": f"{rate}%",
-            "forecast_value": current_value
+            "expected_value": current_value,
         })
-        
-    assumptions_disclaimer = [
-        "This valuation is a desktop assessment and no physical inspection was conducted.",
-        "The valuation is indicative and may vary with market conditions.",
-        "The report is valid for 45 days from the date of issue."
+
+    swot_analysis = ai_json.get(
+        "swot_analysis",
+        {
+            "strengths": [],
+            "weaknesses": [],
+            "opportunities": [],
+            "threats": [],
+        }
+    )
+
+    disclaimer = [
+        "This report is a Desktop Valuation Opinion prepared using secondary market data.",
+        "No physical or on-site inspection of the subject property has been carried out.",
+        "The value stated represents an indicative market value for cross-check/reference purposes only.",
+        "Actual realizable value may vary based on physical condition, legal status, negotiations, and market sentiment.",
+        "This report is not intended for statutory, legal, lending, or enforcement purposes.",
+        "No responsibility is assumed for title verification, encumbrances, or statutory approvals.",
+        "This report is confidential and intended solely for the client.",
     ]
 
     return {
-        "property_identification": property_identification,
-        "property_summary": property_summary,
-        "comparable_sales": comparable_sales,
-        "comparable_analysis_summary": comparable_analysis_summary,
-        "three_tier_valuation": three_tier_valuation,
-        "valuation_risk_analysis": valuation_risk_analysis,
-        "market_commentary": market_commentary,
+        "property_details": property_details,
+        "location_identification": location_identification,
+        "project_profile": project_profile,
+        "area_details": area_details,
+        "market_benchmark": market_benchmark,
+        "indicative_market_value": indicative_market_value,
+        "value_range": value_range,
+        "nearby_market_evidence": nearby_market_evidence,
+        "future_outlook": future_outlook,
         "swot_analysis": swot_analysis,
-        "value_forecast": value_forecast,
-        "assumptions_disclaimer": assumptions_disclaimer
+        "disclaimer": disclaimer,
     }

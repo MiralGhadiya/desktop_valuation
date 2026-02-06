@@ -31,18 +31,20 @@ def geocode_address(address: str):
 
 def build_static_maps(lat, lng):
     base = "https://maps.googleapis.com/maps/api/staticmap"
-    common = (
-        f"center={lat},{lng}"
-        f"&zoom=16"
-        f"&size=600x400"
-        f"&scale=2"
-        f"&markers=color:red%7C{lat},{lng}"
-        f"&key={GOOGLE_MAPS_KEY}"
-    )
+
+    def common_params(zoom):
+        return (
+            f"center={lat},{lng}"
+            f"&zoom={zoom}"
+            f"&size=600x400"
+            f"&scale=2"
+            f"&markers=color:red%7C{lat},{lng}"
+            f"&key={GOOGLE_MAPS_KEY}"
+        )
 
     return {
-        "roadmap": f"{base}?{common}&maptype=roadmap",
-        "satellite": f"{base}?{common}&maptype=satellite",
-        "terrain": f"{base}?{common}&maptype=terrain",
-        "hybrid": f"{base}?{common}&maptype=hybrid",
+        "roadmap": f"{base}?{common_params(16)}&maptype=roadmap",
+        "satellite": f"{base}?{common_params(16)}&maptype=satellite",
+        "hybrid": f"{base}?{common_params(16)}&maptype=hybrid",
+        "terrain": f"{base}?{common_params(19)}&maptype=terrain",
     }

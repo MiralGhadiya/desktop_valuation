@@ -44,6 +44,48 @@ BASE_PROMPT = """
           Compliance:
           - Market approach dominates
           - Lending model must be conservative and defensible
+          
+          If configuration or construction status is missing:
+          - Infer configuration based on property type, area, and market norms
+          - Infer construction status as one of:
+          Under Construction | Ready to Move | Vacant Plot | Occupied
+          
+          Additional Valuation Drivers (MANDATORY):
+          - configuration materially impacts valuation
+          - construction_status materially impacts valuation
+
+          Rules:
+          - Ready-to-move or completed properties command a premium
+          - Under-construction properties require risk discounting
+          - Vacant plots must NOT include construction value
+          - Residential plots ignore configuration for area breakup but consider it for demand
+          - Flats and houses MUST adjust value based on configuration (1BHK < 2BHK < 3BHK)
+          
+          Inference Rules (MANDATORY):
+          - If location or project attributes are missing, infer them logically
+          - Use city, address, property type, and zoning as signals
+          - Use standard Indian real estate norms
+          - Never leave descriptive fields empty unless impossible
+
+          Location:
+          - micro_location
+          - municipal_authority
+          - connectivity
+          - social_infrastructure
+          - surroundings
+          - demand_profile
+ 
+          Project:
+          - developer
+          - project_positioning
+          - towers
+          - amenities
+          - market_perception
+
+          Area Usage:
+          - layout
+          - floor_plan
+          - current_usage
         """
 
 PROPERTY_PROMPTS = {
@@ -96,6 +138,11 @@ PROPERTY_PROMPTS = {
             - Market comparable value is PRIMARY
             - Cost-based construction valuation is SECONDARY and supportive
             - Land value must be apportioned based on undivided share
+            
+            Valuation Drivers:
+            - Configuration (1BHK, 2BHK, 3BHK, etc.) directly impacts market rate
+            - Larger configurations command higher per-unit value but slightly lower per-sqft rate
+            - Smaller configurations have higher liquidity but capped ticket size
 
             Depreciation:
             - Apply depreciation on construction component only
@@ -107,6 +154,7 @@ PROPERTY_PROMPTS = {
                 
             Constraints:
             - Prefer same-building or same-society comparables
+            - Configuration must align with built-up area
 
             Premiums:
             - Higher floor with lift access
@@ -156,9 +204,36 @@ PROPERTY_PROMPTS = {
 CORE_JSON_SCHEMA = """
         {
           "property_details":{
-            "address":"","city":"","country":"","property_type":"",
-            "land_area_sqft":0,"built_up_area_sqft":0,"age_years":0,"zoning":""
-          },
+            "address":"",
+            "city":"",
+            "country":"",
+            "property_type":"",
+
+            "micro_location":"",
+            "municipal_authority":"",
+            "connectivity":"",
+            "social_infrastructure":"",
+            "surroundings":"",
+            "demand_profile":"",
+
+            "developer":"",
+            "project_positioning":"",
+            "towers":"",
+            "amenities":"",
+            "market_perception":"",
+
+            "layout":"",
+            "floor_plan":"",
+            "current_usage":"",
+
+            "configuration":"",
+            "construction_status":"",
+
+            "land_area_sqft":0,
+            "built_up_area_sqft":0,
+            "age_years":0,
+            "zoning":""
+            }
           "predicted_value":{
             "low_value":0,"mid_value":0,"high_value":0,
             "fair_market_value":0,"confidence_score":0

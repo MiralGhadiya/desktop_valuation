@@ -2,12 +2,12 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8" />
-<title>Desktop Valuation Report</title>
+<title>Desktop Valuation Opinion</title>
+
 <style>
-  /* -------- Page & Typography -------- */
   body {
     font-family: Arial, Helvetica, sans-serif;
-    margin: 35px 45px;
+    margin: 30px 45px;
     color: #222;
     font-size: 13px;
     line-height: 1.5;
@@ -15,46 +15,34 @@
 
   h1 {
     text-align: center;
-    font-size: 26px;
-    margin-bottom: 5px;
+    font-size: 24px;
+    margin-bottom: 4px;
     color: #00332B;
-    letter-spacing: 0.5px;
+    letter-spacing: 0.4px;
   }
 
-  h2 {
-    font-size: 18px;
-    color: #00332B;
-    margin-bottom: 8px;
+  .sub-title {
+    text-align: center;
+    font-size: 12px;
+    margin-bottom: 25px;
+    font-style: italic;
   }
 
-  h3 {
-    font-size: 14px;
-    color: #00332B;
-    margin-bottom: 5px;
-  }
-
-  p {
-    margin: 6px 0;
-  }
-
-  /* -------- Section Headings -------- */
   .section-title {
-    margin-top: 35px;
+    margin-top: 28px;
     margin-bottom: 10px;
     padding-bottom: 6px;
-    font-size: 16px;
+    font-size: 15px;
     font-weight: bold;
     color: #00332B;
     border-bottom: 2px solid #00332B;
     text-transform: uppercase;
   }
 
-  /* -------- Tables -------- */
   table {
     width: 100%;
     border-collapse: collapse;
-    margin: 10px 0 20px;
-    table-layout: fixed;
+    margin: 10px 0 18px;
   }
 
   table th,
@@ -62,319 +50,202 @@
     border: 1px solid #dcdcdc;
     padding: 8px 10px;
     vertical-align: top;
-    word-wrap: break-word;
   }
 
   table th {
-    width: 30%;
+    width: 35%;
     background-color: #f3f6f5;
     font-weight: bold;
     color: #00332B;
   }
 
-  table thead th {
-    text-align: center;
-    font-size: 13px;
-  }
-
-  table tbody td {
-    font-size: 12.5px;
-  }
-
-  /* -------- Maps Section -------- */
-  .map-grid {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 18px;
-    margin-top: 15px;
-  }
-
-  .map-box {
-    text-align: center;
-  }
-
-  .map-title {
-    font-size: 13px;
-    font-weight: bold;
-    color: #00332B;
-    margin-bottom: 6px;
-  }
-
-  .map-box img {
-    width: 100%;
-    max-height: 260px;
-    object-fit: cover;
-    border: 1px solid #cfcfcf;
-  }
-
-  /* -------- Lists -------- */
   ul {
-    margin-top: 5px;
+    margin-top: 6px;
     padding-left: 18px;
   }
 
   li {
-    margin-bottom: 4px;
+    margin-bottom: 6px;
   }
 
-  /* -------- Footer / Certification -------- */
-  .certification {
-    margin-top: 40px;
-    font-size: 12px;
+  .map-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+    margin-top: 15px;
+  }
+
+  .map-box img {
+    width: 100%;
+    border: 1px solid #ccc;
   }
 
   .muted {
     font-size: 11px;
     color: #555;
   }
-
-  .certification {
-  margin-top: 20px;
-  padding-top: 10px;
-}
 </style>
 </head>
+
 <body>
 
-<h1>DESKTOP VALUATION REPORT</h1>
-<p class="muted" style="text-align:center;">
-  Report Version: 2025.4.0 – Global AVM Standard
-</p>
+<h1>DESKTOP VALUATION OPINION</h1>
+<div class="sub-title">
+  (For Market Value Cross-Check / Reference Purpose Only)
+</div>
 
-<!-- ================= PROPERTY IDENTIFICATION ================= -->
-<div class="section-title">PROPERTY IDENTIFICATION</div>
-
+<!-- ================= PROPERTY DETAILS ================= -->
+<div class="section-title">Property Details</div>
 <table>
-  <tr><th>Property Address</th><td>{{ property_identification.property_address }}</td></tr>
-  <tr><th>Valuation ID</th><td>{{ property_identification.valuation_id }}</td></tr>
-  <tr><th>Date of Report</th><td>{{ property_identification.date_of_report }}</td></tr>
-  <tr><th>Purpose of Valuation</th><td>{{ property_identification.purpose_of_valuation }}</td></tr>
-  <tr><th>Report Type</th><td>{{ property_identification.report_type }}</td></tr>
-  <tr><th>Client Name</th><td>{{ property_identification.client_name }}</td></tr>
-  <tr><th>Contact Email</th><td>{{ property_identification.contact_information.email }}</td></tr>
-  <tr><th>Contact Number</th><td>{{ property_identification.contact_information.phone }}</td></tr>
+  <tr><th>Name of Owner</th><td>{{ property_details.name_of_owner }}</td></tr>
+  <tr><th>Project Name</th><td>{{ property_details.project_name }}</td></tr>
+  <tr><th>Property Address</th><td>{{ property_details.property_address }}</td></tr>
+  <tr><th>Property Type</th><td>{{ property_details.property_type }}</td></tr>
+  <tr><th>Configuration</th><td>{{ property_details.configuration }}</td></tr>
+  <tr><th>Carpet Area</th><td>{{ property_details.carpet_area_sqft }} sq.ft</td></tr>
+  <tr><th>Construction Status</th><td>{{ property_details.construction_status }}</td></tr>
+  <tr><th>Purpose of Report</th><td>{{ property_details.purpose_of_report }}</td></tr>
+  <tr><th>Type of Valuation</th><td>{{ property_details.type_of_valuation }}</td></tr>
+  <tr><th>Inspection</th><td>{{ property_details.inspection }}</td></tr>
+  <tr><th>Confidentiality</th><td>{{ property_details.confidentiality }}</td></tr>
 </table>
 
-<!-- ================= PROPERTY SUMMARY ================= -->
-<div class="section-title">PROPERTY SUMMARY</div>
-
+<!-- ================= LOCATION & IDENTIFICATION ================= -->
+<div class="section-title">Location & Identification</div>
 <table>
-  <tr><th>Property Type</th><td>{{ property_summary.property_type }}</td></tr>
-  <tr><th>Land Area</th><td>{{ property_summary.land_area }}</td></tr>
-  <tr><th>Built-up Area</th><td>{{ property_summary.built_up_area }}</td></tr>
-  <tr><th>Zoning</th><td>{{ property_summary.zoning }}</td></tr>
-  <tr><th>Title Details</th><td>{{ property_summary.title_details }}</td></tr>
-  <tr><th>Construction Year</th><td>{{ property_summary.construction_year }}</td></tr>
-  <tr><th>Structure</th><td>{{ property_summary.structure }}</td></tr>
-  <tr><th>Car Parking</th><td>{{ property_summary.car_parking }}</td></tr>
-  <tr><th>Ownership Type</th><td>{{ property_summary.ownership_type }}</td></tr>
-  <tr><th>Occupancy</th><td>{{ property_summary.occupancy }}</td></tr>
-  <tr><th>Local Authority</th><td>{{ property_summary.local_authority }}</td></tr>
-  <tr><th>Last Sale Date</th><td>{{ property_summary.last_sale_date }}</td></tr>
-  <tr><th>Last Sale Price</th><td>{{ property_summary.last_sale_price }}</td></tr>
-  <tr><th>Customer Estimate</th><td>{{ property_summary.customer_estimate }}</td></tr>
+  <tr><th>Micro Location</th><td>{{ location_identification.micro_location }}</td></tr>
+  <tr><th>Municipal Authority</th><td>{{ location_identification.municipal_authority }}</td></tr>
+  <tr><th>Connectivity</th><td>{{ location_identification.connectivity }}</td></tr>
+  <tr><th>Social Infrastructure</th><td>{{ location_identification.social_infrastructure }}</td></tr>
+  <tr><th>Surroundings</th><td>{{ location_identification.surroundings }}</td></tr>
+  <tr><th>Zoning</th><td>{{ location_identification.zoning }}</td></tr>
+  <tr><th>Demand Profile</th><td>{{ location_identification.demand_profile }}</td></tr>
 </table>
 
-<!-- ================= COMPARABLE SALES ================= -->
-<div class="section-title">COMPARABLE SALES ANALYSIS</div>
+<!-- ================= PROJECT PROFILE ================= -->
+<div class="section-title">Project Profile</div>
+<table>
+  <tr><th>Developer</th><td>{{ project_profile.developer }}</td></tr>
+  <tr><th>Project Positioning</th><td>{{ project_profile.project_positioning }}</td></tr>
+  <tr><th>Towers</th><td>{{ project_profile.towers }}</td></tr>
+  <tr><th>Amenities</th><td>{{ project_profile.amenities }}</td></tr>
+  <tr><th>Market Perception</th><td>{{ project_profile.market_perception }}</td></tr>
+</table>
 
+<!-- ================= AREA DETAILS ================= -->
+<div class="section-title">Area Details</div>
+<table>
+  <tr><th>Carpet Area</th><td>{{ area_details.carpet_area_sqft }} sq.ft</td></tr>
+  <tr><th>Layout</th><td>{{ area_details.layout }}</td></tr>
+  <tr><th>Floor Plan</th><td>{{ area_details.floor_plan }}</td></tr>
+  <tr><th>Current Usage</th><td>{{ area_details.current_usage }}</td></tr>
+</table>
+
+<!-- ================= MARKET BENCHMARK ================= -->
+<div class="section-title">Market Benchmark</div>
 <table>
   <thead>
     <tr>
-      <th>Address</th>
-      <th>Beds</th>
-      <th>Baths</th>
-      <th>Land</th>
-      <th>Sale Date</th>
-      <th>Sale Price</th>
-      <th>Comparison</th>
-      <th>Distance</th>
+      <th>Locality</th>
+      <th>Rate (₹ / sq.ft)</th>
     </tr>
   </thead>
   <tbody>
-    {% for this in comparable_sales %}
+    {% for c in market_benchmark %}
     <tr>
-      <td>{{ this.address }}</td>
-      <td>{{ this.beds }}</td>
-      <td>{{ this.baths }}</td>
-      <td>{{ this.land_area }}</td>
-      <td>{{ this.sale_date }}</td>
-      <td>{{ this.sale_price }}</td>
-      <td>{{ this.comparison }}</td>
-      <td>{{ this.distance }}</td>
+      <td>{{ c.address }}</td>
+      <td>{{ c.sale_price }}</td>
     </tr>
     {% endfor %}
   </tbody>
 </table>
 
-<p><strong>Average Comparable Value:</strong> {{ comparable_analysis_summary.average_comparable_value }}</p>
-<p><strong>Adjusted Subject Estimate:</strong> {{ comparable_analysis_summary.adjusted_subject_estimate }}</p>
-
-<!-- ================= THREE-TIER ================= -->
-<div class="section-title">THREE-TIER VALUE ESTIMATION</div>
-
+<!-- ================= INDICATIVE MARKET VALUE ================= -->
+<div class="section-title">Indicative Market Value</div>
 <table>
-  <tr><th>Conservative Value</th><td>{{ three_tier_valuation.conservative_value }}</td></tr>
-  <tr><th>Mid-Range Value</th><td>{{ three_tier_valuation.mid_range_value }}</td></tr>
-  <tr><th>High Estimate</th><td>{{ three_tier_valuation.high_value }}</td></tr>
+  <tr><th>Area Considered</th><td>{{ indicative_market_value.area_considered_sqft }} sq.ft</td></tr>
+  <tr><th>Adopted Market Rate</th><td>₹ {{ indicative_market_value.adopted_market_rate }} / sq.ft</td></tr>
+  <tr><th>Indicative Market Value</th><td>₹ {{ indicative_market_value.indicative_value }}</td></tr>
 </table>
 
-<!-- ================= RISK ANALYSIS ================= -->
-<div class="section-title">VALUATION & RISK ANALYSIS</div>
-
+<!-- ================= VALUE RANGE ================= -->
+<div class="section-title">Value Range (Market Cross-Check)</div>
 <table>
-  <tr><th>Value Range</th><td>{{ valuation_risk_analysis.value_range }}</td></tr>
-  <tr><th>Confidence Index</th><td>{{ valuation_risk_analysis.confidence_index }}</td></tr>
-  <tr><th>Market Risk Score</th><td>{{ valuation_risk_analysis.market_risk_score }}</td></tr>
-  <tr><th>Property Risk Score</th><td>{{ valuation_risk_analysis.property_risk_score }}</td></tr>
-  <tr><th>Recommended LTV</th><td>{{ valuation_risk_analysis.recommended_ltv }}</td></tr>
-  <tr><th>Validity</th><td>{{ valuation_risk_analysis.validity }}</td></tr>
+  <tr><th>Conservative</th><td>₹ {{ value_range.conservative }}</td></tr>
+  <tr><th>Mid-Range (Adopted)</th><td>₹ {{ value_range.mid_range }}</td></tr>
+  <tr><th>Optimistic</th><td>₹ {{ value_range.optimistic }}</td></tr>
 </table>
 
-<!-- ================= COMMENTARY ================= -->
-<div class="section-title">MARKET COMMENTARY</div>
-<p>{{ market_commentary }}</p>
-
-<!-- ================= SWOT ================= -->
-<div class="section-title">SWOT ANALYSIS (5-YEAR OUTLOOK)</div>
-
-<h3>Strengths</h3>
+<!-- ================= NEARBY MARKET EVIDENCE ================= -->
+<div class="section-title">Nearby Market Evidence</div>
 <ul>
-{% for item in swot_analysis.strengths %}
-<li>{{ item }}</li>
-{% endfor %}
+  {% for item in nearby_market_evidence %}
+  <li>{{ item }}</li>
+  {% endfor %}
 </ul>
 
-<h3>Weaknesses</h3>
-<ul>
-{% for item in swot_analysis.weaknesses %}
-<li>{{ item }}</li>
-{% endfor %}
-</ul>
-
-<h3>Opportunities</h3>
-<ul>
-{% for item in swot_analysis.opportunities %}
-<li>{{ item }}</li>
-{% endfor %}
-</ul>
-
-<h3>Threats</h3>
-<ul>
-{% for item in swot_analysis.threats %}
-<li>{{ item }}</li>
-{% endfor %}
-</ul>
-
-<!-- ================= FORECAST ================= -->
-<div class="section-title">5-YEAR VALUE FORECAST</div>
-
+<!-- ================= FUTURE OUTLOOK ================= -->
+<div class="section-title">Future Outlook (5-Year Indication)</div>
 <table>
   <thead>
     <tr>
       <th>Year</th>
-      <th>Growth Rate</th>
-      <th>Forecasted Value</th>
+      <th>Expected Value</th>
     </tr>
   </thead>
   <tbody>
-    {% for row in value_forecast %}
+    {% for row in future_outlook %}
     <tr>
       <td>{{ row.year }}</td>
-      <td>{{ row.growth_rate }}</td>
-      <td>{{ row.forecast_value }}</td>
+      <td>₹ {{ row.expected_value }}</td>
     </tr>
     {% endfor %}
   </tbody>
 </table>
 
+<!-- ================= SWOT ================= -->
+<div class="section-title">SWOT Analysis</div>
+
+<h3>Strengths</h3>
+<ul>{% for i in swot_analysis.strengths %}<li>{{ i }}</li>{% endfor %}</ul>
+
+<h3>Weaknesses</h3>
+<ul>{% for i in swot_analysis.weaknesses %}<li>{{ i }}</li>{% endfor %}</ul>
+
+<h3>Opportunities</h3>
+<ul>{% for i in swot_analysis.opportunities %}<li>{{ i }}</li>{% endfor %}</ul>
+
+<h3>Threats</h3>
+<ul>{% for i in swot_analysis.threats %}<li>{{ i }}</li>{% endfor %}</ul>
+
 <!-- ================= PROPERTY LOCATION MAPS ================= -->
-<div class="section-title">PROPERTY LOCATION MAPS</div>
+<div class="section-title">Property Location Maps</div>
 
-{% if property_identification.location %}
+{% if property_location %}
 <div class="map-grid">
-
-  <div class="map-box">
-    <div class="map-title">Road Map</div>
-    <img src="{{ property_identification.location.maps.roadmap }}">
-  </div>
-
-  <div class="map-box">
-    <div class="map-title">Satellite View</div>
-    <img src="{{ property_identification.location.maps.satellite }}">
-  </div>
-
-  <div class="map-box">
-    <div class="map-title">Terrain View</div>
-    <img src="{{ property_identification.location.maps.terrain }}">
-  </div>
-
-  <div class="map-box">
-    <div class="map-title">Hybrid View</div>
-    <img src="{{ property_identification.location.maps.hybrid }}">
-  </div>
-
+  <div class="map-box"><img src="{{ property_location.maps.roadmap }}"></div>
+  <div class="map-box"><img src="{{ property_location.maps.satellite }}"></div>
+  <div class="map-box"><img src="{{ property_location.maps.terrain }}"></div>
+  <div class="map-box"><img src="{{ property_location.maps.hybrid }}"></div>
 </div>
-
-<p class="muted" style="margin-top:10px;">
-Map location accuracy: {{ property_identification.location.location_type }}
-</p>
 {% else %}
-<p>Map not available for this property.</p>
+<p class="muted">Map not available.</p>
 {% endif %}
 
-
-<!-- ================= ASSUMPTIONS, LIMITATIONS & DISCLAIMER ================= -->
-<div class="section-title">ASSUMPTIONS, LIMITATIONS & DISCLAIMER</div>
-
-<ol style="padding-left:18px; font-size:12px;">
-  <li>
-    This valuation is a desktop assessment generated using an Automated Valuation
-    Model (AVM) and publicly available datasets. No physical site inspection was conducted.
-  </li>
-  <li>
-    All estimated figures are indicative in nature and may vary from values determined
-    through an on-site professional valuation.
-  </li>
-  <li>
-    This valuation report remains valid for a period of <strong>45 days</strong> from the
-    date of issuance.
-  </li>
-  <li>
-    All monetary figures are dynamically adjusted based on the applicable country
-    currency and prevailing local market indices.
-  </li>
-  <li>
-    The jurisdiction for any dispute arising from this report shall be governed by
-    the laws applicable to the country in which the subject property is located.
-  </li>
-  <li>
-    This report is intended solely for the instructing party and is to be used for
-    internal assessment, financial analysis, or decision-support purposes only.
-  </li>
+<!-- ================= DISCLAIMER ================= -->
+<div class="section-title">Important Notes & Disclaimers</div>
+<ol>
+  {% for d in disclaimer %}
+  <li>{{ d }}</li>
+  {% endfor %}
 </ol>
 
-<p class="muted">
-  Reliance on this report without independent verification is at the discretion of the user.
+<!-- ================= PREPARED BY ================= -->
+<div class="section-title">Prepared By</div>
+<p>
+  <strong>Earth Engineers</strong><br>
+  Desktop Valuation & Advisory
 </p>
 
-
-<!-- ================= CERTIFICATION ================= -->
-<div class="section-title">CERTIFICATION</div>
-
-<div class="certification">
-  <strong>Prepared by:</strong><br>
-  Earth Engineers – Desktop Valuation Division<br><br>
-
-  <strong>Contact:</strong><br>
-  Email: eartheng3035@gmail.com<br>
-  Phone: +91 81413 03035<br>
-  Website: www.desktopvaluation.in<br><br>
-
-  <p class="muted">
-    This report has been generated using the proprietary <strong>Earth Engineers Automated
-    Valuation Model (AVM)</strong>, which integrates comparable sales analytics, regional
-    growth algorithms, and predictive trend models to produce accurate, AI-supported
-    property estimates worldwide.
-  </p>
-</div>
+</body>
+</html>

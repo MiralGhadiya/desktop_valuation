@@ -302,7 +302,7 @@ def login(user: schemas.UserLogin, db: Session = Depends(get_db)):
 
 @router.post("/google")
 def google_login(
-    request: Request,  
+    request: Request,
     data: schemas.GoogleLogin,
     db: Session = Depends(get_db),
 ):
@@ -316,7 +316,14 @@ def google_login(
     name = payload.get("name", "User")
 
     if not email:
-        raise HTTPException(400, "Google account has no email")
+        raise HTTPException(status_code=400, detail="Google account has no email")
+
+    existing_user = db.query(User).filter(User.email == email).first()
+    if existing_user:
+        raise HTTPException(
+            status_code=400,
+            detail="This email is already registered"
+        )
 
     user = db.query(User).filter(
         User.provider == "GOOGLE",
@@ -326,6 +333,7 @@ def google_login(
     country_id = None
     client_ip = get_client_ip(request)
     print(f"Client IP: {client_ip}")
+
     country_code = get_ip_country(client_ip)
     print(f"Country code from IP: {country_code}")
 
@@ -336,8 +344,8 @@ def google_login(
         if not country:
             country = country_service.create_country(
                 db,
-                name=country_code,        # or map to full name later
-                dial_code=None,           # unknown from IP
+                name=country_code,  
+                dial_code=None,        
                 country_code=country_code
             )
             print(f"Created new country: {country}")
@@ -349,7 +357,7 @@ def google_login(
             email=email,
             username=name,
             mobile_number=f"google_{google_id[:10]}",
-            country_id=country_id, 
+            country_id=country_id,
             hashed_password="GOOGLE_AUTH",
             provider="GOOGLE",
             provider_id=google_id,
@@ -374,7 +382,7 @@ def google_login(
         "access_token": access_token,
         "refresh_token": refresh_token,
     }
-    
+
    
 @router.post("/refresh", response_model=schemas.TokenResponse)
 def refresh_token(
@@ -543,14 +551,14 @@ def forgot_password(
         logger.exception("Failed to create password reset token")
         raise HTTPException(500, "Failed to initiate password reset")
 
-    reset_link = f"http://localhost:8000/reset-password?token={raw_token}"
+    reset_link = f"{BASE_URL}/reset-password?token={raw_token}"
     
     send_reset_email(user.email, reset_link)
 
     logger.info(f"Password reset requested for email={user.email}")
 
     return {
-        "message": "reset link sent to email"
+        "message": "If email is registered, a password reset link has been sent. Please check your inbox."
     }
 
 

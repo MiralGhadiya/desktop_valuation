@@ -1,5 +1,6 @@
 # app/tasks/valuation_tasks.py
 
+from uuid import uuid4
 from app.celery_app import celery_app
 from app.database.db import SessionLocal
 from app.models.valuation import ValuationJob
@@ -53,19 +54,29 @@ def process_valuation_job(self, job_id: str):
 
         # 3️⃣ Geocode
         geo = geocode_address(address)
-
         if geo:
-            maps = build_static_maps(geo["lat"], geo["lng"])
-
-            context["property_identification"]["location"] = {
+            context["property_location"] = {
                 "latitude": geo["lat"],
                 "longitude": geo["lng"],
                 "location_type": geo["location_type"],
                 "formatted_address": geo["formatted_address"],
-                "maps": maps
+                "maps": build_static_maps(geo["lat"], geo["lng"]),
             }
         else:
-            context["property_identification"]["location"] = None
+            context["property_location"] = None
+
+        # if geo:
+        #     maps = build_static_maps(geo["lat"], geo["lng"])
+
+        #     # context["property_identification"]["location"] = {
+        #     #     "latitude": geo["lat"],
+        #     #     "longitude": geo["lng"],
+        #     #     "location_type": geo["location_type"],
+        #     #     "formatted_address": geo["formatted_address"],
+        #     #     "maps": maps
+        #     # }
+        # else:
+        #     context["property_identification"]["location"] = None
             
         html = render_html("valuation_template.html", context)
         pdf_path = generate_pdf_from_html(html)
@@ -76,8 +87,10 @@ def process_valuation_job(self, job_id: str):
             message=f"Dear {user_input['full_name']},\n\nPlease find attached your valuation report.",
             pdf_path=pdf_path,
         )
+        
+        valuation_id = str(uuid4())
 
-        valuation_id = context["property_identification"]["valuation_id"]
+        # valuation_id = context["property_identification"]["valuation_id"]
         save_valuation_report(
             db,
             {

@@ -53,16 +53,18 @@ class ValuationJob(UUIDPrimaryKeyMixin,Base):
 
 class DesktopValuationForm(BaseModel):
     country: str
-    # city_location: str
     full_address: str
     property_type: str
     land_area: str
     built_up_area: Optional[str] = None
     year_built: Optional[str] = None
+    configuration: Optional[str] = None
+    construction_status: Optional[str] = None
     estimated_market_value: Optional[str] = None
     stories: Optional[str] = None
     purpose_of_valuation: str
     full_name: str
+    project_name: Optional[str] = None
     email: EmailStr
     contact_number: str
     
@@ -75,10 +77,13 @@ def desktop_valuation_form_dep(
     land_area: str = Form(...),
     built_up_area: Optional[str] = Form(None),
     year_built: Optional[str] = Form(None),
+    configuration: Optional[str] = Form(None),
+    construction_status: Optional[str] = Form(None),
     estimated_market_value: Optional[str] = Form(None),
     stories: Optional[str] = Form(None),
     purpose_of_valuation: str = Form(...),
     full_name: str = Form(...),
+    project_name: Optional[str] = Form(None),
     email: EmailStr = Form(...),
     contact_number: str = Form(...),
 ) -> DesktopValuationForm:
@@ -90,10 +95,13 @@ def desktop_valuation_form_dep(
         land_area=land_area,
         built_up_area=built_up_area,
         year_built=year_built,
+        configuration=configuration,
+        construction_status=construction_status,
         estimated_market_value=estimated_market_value,
         stories=stories,
         purpose_of_valuation=purpose_of_valuation,
         full_name=full_name,
+        project_name=project_name,
         email=email,
         contact_number=contact_number,
     )
