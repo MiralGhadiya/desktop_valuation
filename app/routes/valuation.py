@@ -192,7 +192,7 @@ def generate_valuation(
 # 📄 LIST USER VALUATIONS
 # --------------------------------------------------
 @router.get(
-    "/my-valuations",
+    "valuation/my-valuations",
     response_model=PaginatedResponse[dict]
 )
 def my_valuations(
@@ -256,7 +256,7 @@ def my_valuations(
 # --------------------------------------------------
 # 📥 DOWNLOAD PDF
 # --------------------------------------------------
-@router.get("/{valuation_id}/download")
+@router.get("valuation/{valuation_id}/download")
 def download_valuation_pdf(
     valuation_id: str,
     db: Session = Depends(get_db),
@@ -282,3 +282,38 @@ def download_valuation_pdf(
         media_type="application/pdf",
         filename=f"{valuation.valuation_id}.pdf",
     )
+
+
+@router.get("/valuation/{valuation_id}")
+def get_valuation_by_id(
+    valuation_id: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    logger.info(
+        f"Fetching valuation valuation_id={valuation_id} "
+        f"user_id={current_user.id}"
+    )
+
+    valuation = (
+        db.query(ValuationReport)
+        .filter(
+            ValuationReport.valuation_id == valuation_id,
+            ValuationReport.user_id == current_user.id,
+        )
+        .first()
+    )
+
+    if not valuation:
+        raise HTTPException(404, "Valuation not found")
+
+    return {
+        "valuation_id": valuation.valuation_id,
+        "category": valuation.category,
+        "country_code": valuation.country_code,
+        "created_at": valuation.created_at,
+        "user_fields": valuation.user_fields,
+        "ai_response": valuation.ai_response,
+        "report_context": valuation.report_context,
+        "pdf_available": bool(valuation.pdf_path),
+    }
