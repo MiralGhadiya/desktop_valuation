@@ -88,6 +88,6 @@ async def add_ip_country(request: Request, call_next):
     return await call_next(request)
 
 
-@app.get("/")
-def health():
+@app.get("/healthz")
+def healthz():
     return {"status": "ok"}

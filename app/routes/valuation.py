@@ -142,19 +142,19 @@ def generate_valuation(
         raise HTTPException(500, "Failed to generate PDF")
 
     # 7️⃣ Send email
-    try:
-        send_pdf_email(
-            to_email=user_input["email"],
-            subject="Your Desktop Valuation Report",
-            message=(
-                f"Dear {user_input.get('full_name')},\n\n"
-                "Please find attached your valuation report."
-            ),
-            pdf_path=pdf_path,
-        )
-    except Exception:
-        logger.exception("Email sending failed")
-        raise HTTPException(500, "Failed to send valuation email")
+    # try:
+    #     send_pdf_email(
+    #         to_email=user_input["email"],
+    #         subject="Your Desktop Valuation Report",
+    #         message=(
+    #             f"Dear {user_input.get('full_name')},\n\n"
+    #             "Please find attached your valuation report."
+    #         ),
+    #         pdf_path=pdf_path,
+    #     )
+    # except Exception:
+    #     logger.exception("Email sending failed")
+    #     raise HTTPException(500, "Failed to send valuation email")
 
     # 8️⃣ Save valuation to DB
     valuation_id = str(uuid4())
