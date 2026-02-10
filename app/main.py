@@ -4,7 +4,7 @@ from fastapi.responses import Response
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.database.db import engine, Base
-from app.routes import auth as user_auth, valuation, subscription, payment, user_feedback
+from app.routes import auth as user_auth, valuation, subscription, payment, user_feedback, maintenance
 from app.routes.admin import (
     auth,
     users,
@@ -15,8 +15,6 @@ from app.routes.admin import (
     feedback,
     staff,
 )
-
-import app.celery_app
 
 from app.middleware.ip_country import get_ip_country, get_client_ip
 from app.utils.logger_config import app_logger as logger
@@ -60,6 +58,7 @@ app.include_router(valuation.router)
 app.include_router(subscription.router)
 app.include_router(payment.router)
 app.include_router(user_feedback.router)
+app.include_router(maintenance.router)
 
 # --------------------------------------------------
 # Routers (Admin)

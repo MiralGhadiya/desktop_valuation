@@ -1,41 +1,28 @@
-import os
-import requests
-from datetime import datetime
-
-from app.models import ExchangeRate
 from app.database.db import SessionLocal
+from app.models import ExchangeRate
+from datetime import datetime
+import requests
+import os
 
-
-def update_exchange_rates():
+def run():
     api_key = os.getenv("EXCHANGE_RATE_API_KEY")
-    if not api_key:
-        raise RuntimeError("EXCHANGE_RATE_API_KEY not set")
-
     db = SessionLocal()
+
     try:
         res = requests.get(
             "https://api.exchangerate.host/live",
             params={"access_key": api_key, "base": "USD"},
             timeout=10,
         )
-        res.raise_for_status()
-
         data = res.json()
-        quotes = data.get("quotes", {})
 
-        for pair, rate in quotes.items():
-            if not pair.startswith("USD"):
-                continue
-
+        for pair, rate in data["quotes"].items():
             currency = pair.replace("USD", "")
+            obj = db.query(ExchangeRate).filter_by(currency_code=currency).first()
 
-            existing = db.query(ExchangeRate).filter(
-                ExchangeRate.currency_code == currency
-            ).first()
-
-            if existing:
-                existing.rate_to_usd = rate
-                existing.updated_at = datetime.utcnow()
+            if obj:
+                obj.rate_to_usd = rate
+                obj.updated_at = datetime.utcnow()
             else:
                 db.add(
                     ExchangeRate(
@@ -44,8 +31,9 @@ def update_exchange_rates():
                         updated_at=datetime.utcnow(),
                     )
                 )
-
         db.commit()
-
     finally:
         db.close()
+
+if __name__ == "__main__":
+    run()

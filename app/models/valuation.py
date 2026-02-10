@@ -31,23 +31,23 @@ class ValuationReport(UUIDPrimaryKeyMixin, Base):
     pdf_path = Column(String, nullable=False)
     
     
-class ValuationJob(UUIDPrimaryKeyMixin,Base):
-    __tablename__ = "valuation_jobs"
+# class ValuationJob(UUIDPrimaryKeyMixin,Base):
+#     __tablename__ = "valuation_jobs"
 
-    user_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
-    subscription_id = Column(UUID(as_uuid=True), nullable=False)
-    category = Column(String, nullable=False)
-    country_code = Column(String(5), nullable=False)
+#     user_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
+#     subscription_id = Column(UUID(as_uuid=True), nullable=False)
+#     category = Column(String, nullable=False)
+#     country_code = Column(String(5), nullable=False)
 
-    request_payload = Column(JSON, nullable=False)
+#     request_payload = Column(JSON, nullable=False)
 
-    status = Column(String, default="queued")  # queued | processing | completed | failed
-    valuation_id = Column(String, nullable=True)
-    pdf_path = Column(String, nullable=True)
-    error_message = Column(String, nullable=True)
+#     status = Column(String, default="queued")  # queued | processing | completed | failed
+#     valuation_id = Column(String, nullable=True)
+#     pdf_path = Column(String, nullable=True)
+#     error_message = Column(String, nullable=True)
 
-    created_at = Column(DateTime(timezone=True), server_default=func.now())
-    updated_at = Column(DateTime(timezone=True), onupdate=func.now())
+#     created_at = Column(DateTime(timezone=True), server_default=func.now())
+#     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
 
 
 

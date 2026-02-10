@@ -4,11 +4,13 @@ from app.services.subscription_service import (
     send_expiry_reminders,
 )
 
-
-def run_subscription_maintenance():
+def run():
     db = SessionLocal()
     try:
         expire_subscriptions(db)
         send_expiry_reminders(db)
     finally:
         db.close()
+
+if __name__ == "__main__":
+    run()

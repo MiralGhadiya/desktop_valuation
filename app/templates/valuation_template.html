@@ -221,12 +221,20 @@
 <!-- ================= PROPERTY LOCATION MAPS ================= -->
 <div class="section-title">Property Location Maps</div>
 
-{% if property_location %}
+{% if property_maps %}
 <div class="map-grid">
-  <div class="map-box"><img src="{{ property_location.maps.roadmap }}"></div>
-  <div class="map-box"><img src="{{ property_location.maps.satellite }}"></div>
-  <div class="map-box"><img src="{{ property_location.maps.terrain }}"></div>
-  <div class="map-box"><img src="{{ property_location.maps.hybrid }}"></div>
+  <div class="map-box">
+    <img src="{{ property_maps.roadmap }}" alt="Road Map">
+  </div>
+  <div class="map-box">
+    <img src="{{ property_maps.satellite }}" alt="Satellite Map">
+  </div>
+  <div class="map-box">
+    <img src="{{ property_maps.terrain }}" alt="Terrain Map">
+  </div>
+  <div class="map-box">
+    <img src="{{ property_maps.hybrid }}" alt="Hybrid Map">
+  </div>
 </div>
 {% else %}
 <p class="muted">Map not available.</p>
