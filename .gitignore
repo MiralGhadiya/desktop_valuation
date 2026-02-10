@@ -88,3 +88,10 @@ dist/
 # LLM / Cache
 # ======================
 .cache/
+
+# ======================
+# Generated Reports
+# ======================
+generated_reports/
+generated_reports*.zip
+txt.txt

@@ -1,15 +1,20 @@
 # app/celery_app.py
 
+import os
 from celery import Celery
 from celery.schedules import crontab
 
-celery_app = Celery(
+REDIS_URL = os.getenv("REDIS_URL")
+CELERY_BROKER_URL = os.getenv("CELERY_BROKER_URL", f"{REDIS_URL}/0")
+CELERY_RESULT_BACKEND = os.getenv("CELERY_RESULT_BACKEND", f"{REDIS_URL}/1")
+
+celery = Celery(
     "app",
-    broker="redis://127.0.0.1:6379/0",
-    backend="redis://127.0.0.1:6379/1",
+    broker=CELERY_BROKER_URL,
+    backend=CELERY_RESULT_BACKEND,
 )
 
-celery_app.conf.update(
+celery.conf.update(
     broker_connection_retry_on_startup=True,
     task_serializer="json",
     accept_content=["json"],
@@ -18,13 +23,15 @@ celery_app.conf.update(
     enable_utc=True,
 )
 
-celery_app.conf.imports = (
+# Explicit task discovery
+celery.conf.imports = (
     "app.tasks.subscription_tasks",
     "app.tasks.valuation_tasks",
     "app.tasks.currency_tasks",
 )
 
-celery_app.conf.beat_schedule = {
+# Celery Beat schedule
+celery.conf.beat_schedule = {
     "expire-subscriptions-daily": {
         "task": "app.tasks.subscription_tasks.expire_subscriptions_task",
         "schedule": crontab(hour=0, minute=0),
@@ -36,5 +43,5 @@ celery_app.conf.beat_schedule = {
     "update-exchange-rates": {
         "task": "app.tasks.currency_tasks.update_exchange_rates",
         "schedule": crontab(hour=0, minute=0),
-    }
+    },
 }

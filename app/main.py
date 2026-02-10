@@ -32,11 +32,12 @@ logger.info("Database tables ensured")
 app = FastAPI(title="Desktop Valuation API")
 
 
-@app.middleware("http")
-async def add_ngrok_header(request: Request, call_next):
-    response: Response = await call_next(request)
-    response.headers["ngrok-skip-browser-warning"] = "true"
-    return response
+if os.getenv("ENV") != "production":
+    @app.middleware("http")
+    async def add_ngrok_header(request: Request, call_next):
+        response: Response = await call_next(request)
+        response.headers["ngrok-skip-browser-warning"] = "true"
+        return response
 
 # --------------------------------------------------
 # CORS
@@ -86,3 +87,8 @@ async def add_ip_country(request: Request, call_next):
 
     request.state.ip_country = country
     return await call_next(request)
+
+
+@app.get("/")
+def health():
+    return {"status": "ok"}
