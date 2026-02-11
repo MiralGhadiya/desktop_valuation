@@ -51,7 +51,8 @@ def verify_google_token(token: str):
             os.getenv("GOOGLE_CLIENT_ID"),
         )
         return payload
-    except Exception:
+    except Exception as e:
+        print("Google verification error:", e)
         return None
 
 
@@ -319,11 +320,11 @@ def google_login(
         raise HTTPException(status_code=400, detail="Google account has no email")
 
     existing_user = db.query(User).filter(User.email == email).first()
-    if existing_user:
-        raise HTTPException(
-            status_code=400,
-            detail="This email is already registered"
-        )
+    # if existing_user:
+    #     raise HTTPException(
+    #         status_code=400,
+    #         detail="This email is already registered"
+    #     )
 
     user = db.query(User).filter(
         User.provider == "GOOGLE",
