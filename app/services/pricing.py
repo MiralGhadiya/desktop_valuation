@@ -1,7 +1,14 @@
 # app/services/pricing.py
 
 def resolve_pricing_country(request, current_user) -> str:
-    return getattr(request.state, "ip_country", None) or current_user.country.country_code
+    if getattr(request.state, "ip_country", None):
+        return request.state.ip_country
+    
+    if current_user and current_user.country:
+        return current_user.country.country_code
+
+    return "DEFAULT"
+
 
 def resolve_currency_code(request, current_user) -> str:
     # preferred: currency from user profile country

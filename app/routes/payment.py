@@ -93,17 +93,11 @@ def create_order(
             f"sub_id={existing_pending.id} "
             f"order_id={existing_pending.razorpay_order_id}"
         )
-        try:
-            db.delete(existing_pending)
-            db.commit()
-        except Exception:
-            db.rollback()
-            logger.exception("Failed to delete existing pending subscription")
-            raise HTTPException(
-                status_code=500,
-                detail="Failed to reset previous pending payment"
-            )
-
+        existing_pending.payment_status = "EXPIRED"
+        existing_pending.is_expired = True
+        existing_pending.is_active = False
+        db.commit()
+        
     # if existing_pending and existing_pending.razorpay_order_id:
     #     return {
     #         "order_id": existing_pending.razorpay_order_id,
@@ -186,7 +180,10 @@ def verify_payment(
             raise HTTPException(404, "Subscription not found")
 
         if sub.payment_status == "PAID" and sub.is_active:
-            return {"message": "Already activated"}
+            return {
+                "message": "Already activated",
+                "subscription_id": str(sub.id)
+            }
 
         # ✅ DEFINE NOW FIRST
         now = datetime.now(timezone.utc)
@@ -205,7 +202,10 @@ def verify_payment(
 
         db.commit()
 
-        return {"message": "Payment successful & subscription activated"}
+        return {
+            "message": "Payment successful & subscription activated",
+            "subscription_id": str(sub.id)
+        }
 
     except SignatureVerificationError:
         raise HTTPException(400, "Invalid payment signature")

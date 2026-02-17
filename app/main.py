@@ -4,7 +4,7 @@ from fastapi.responses import Response
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.database.db import engine, Base
-from app.routes import auth as user_auth, valuation, subscription, payment, user_feedback, maintenance
+from app.routes import auth as user_auth, valuation, subscription, payment, user_feedback, maintenance, inquiry
 from app.routes.admin import (
     auth,
     users,
@@ -16,6 +16,7 @@ from app.routes.admin import (
     staff,
 )
 
+from app.middleware.ip_country_middleware import IPCountryMiddleware
 from app.middleware.ip_country import get_ip_country, get_client_ip
 from app.utils.logger_config import app_logger as logger
 
@@ -29,6 +30,7 @@ logger.info("Database tables ensured")
 
 app = FastAPI(title="Desktop Valuation API")
 
+app.add_middleware(IPCountryMiddleware)
 
 if os.getenv("ENV") != "production":
     @app.middleware("http")
@@ -59,6 +61,7 @@ app.include_router(subscription.router)
 app.include_router(payment.router)
 app.include_router(user_feedback.router)
 app.include_router(maintenance.router)
+app.include_router(inquiry.router)
 
 # --------------------------------------------------
 # Routers (Admin)

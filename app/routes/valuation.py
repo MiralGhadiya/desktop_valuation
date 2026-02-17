@@ -71,11 +71,13 @@ def generate_valuation(
     # 1️⃣ Validate input
     try:
         user_input = form.model_dump()
+        print(user_input)
     except Exception:
         logger.exception("Invalid valuation form")
         raise HTTPException(400, "Invalid valuation input")
 
     category = user_input.get("property_type")
+    print(category)
     if not category:
         raise HTTPException(400, "Invalid property type")
 

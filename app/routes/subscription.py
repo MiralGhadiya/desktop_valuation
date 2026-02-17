@@ -5,20 +5,19 @@ from typing import Optional
 from sqlalchemy.orm import Session
 from datetime import datetime, timezone
 from fastapi import APIRouter, Depends, HTTPException, Request, Query
-
-from app.deps import get_db, get_current_user
+from app.services.country_service import get_country_by_country_code
 
 from app.models import User
 from app.models.subscription import SubscriptionPlan, UserSubscription
 from app.services.exchange_rate_service import get_rate
 
 from app.common import PaginatedResponse
-from app.deps import pagination_params
 from app.routes.payment import create_order
 
 from app.utils.date_filters import filter_by_date_range
-
 from app.utils.logger_config import app_logger as logger
+
+from app.deps import get_db, get_current_user, get_current_user_optional, pagination_params
 
 
 router = APIRouter(prefix="/subscription", tags=["subscription"])
@@ -26,20 +25,22 @@ router = APIRouter(prefix="/subscription", tags=["subscription"])
 @router.get("/plans")
 def list_plans(
     request: Request,
-    current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
+    current_user: Optional[User] = Depends(get_current_user_optional),
 ):
     
     ip_country = getattr(request.state, "ip_country", None)
-    country = ip_country or (
-        current_user.country.country_code
-        if current_user.country
-        else "DEFAULT"
-    )
+    
+    if current_user and current_user.country:
+        user_country = current_user.country.country_code
+    else:
+        user_country = None
 
-    logger.debug(
+    country = ip_country or user_country or "DEFAULT"
+
+    logger.info(
         f"IP country={ip_country}, "
-        f"user country={current_user.country.country_code}, "
+        f"user country={current_user.country.country_code if current_user and current_user.country else None}, "
         f"final pricing country={country}"
     )
     
@@ -60,8 +61,16 @@ def list_plans(
     if not usd_plans:
         return []
 
-    user_currency = current_user.country.currency_code 
-    rate = get_rate(db, user_currency)
+    
+    country_obj = get_country_by_country_code(db, country)
+
+    if country_obj and country_obj.currency_code:
+        user_currency = country_obj.currency_code
+    else:
+        user_currency = "USD"
+
+    rate = get_rate(db, user_currency) if user_currency != "USD" else None
+    
     if rate is None:
         logger.warning(f"No exchange rate for currency={user_currency}")
 

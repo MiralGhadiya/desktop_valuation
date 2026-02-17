@@ -49,6 +49,7 @@ def verify_google_token(token: str):
             token,
             requests.Request(),
             os.getenv("GOOGLE_CLIENT_ID"),
+            clock_skew_in_seconds=10  
         )
         return payload
     except Exception as e:
@@ -443,7 +444,17 @@ def refresh_token(
 
     
 @router.get("/profile", response_model=schemas.UserProfile)
-def get_profile(current_user: User = Depends(get_current_user)):
+def get_profile(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    active_sub = db.query(UserSubscription).filter(
+        UserSubscription.user_id == current_user.id,
+        UserSubscription.is_active == True,
+        UserSubscription.is_expired == False,
+        UserSubscription.payment_status == "PAID"
+    ).first()
+
     return {
         "id": current_user.id,
         "username": current_user.username,
@@ -451,6 +462,8 @@ def get_profile(current_user: User = Depends(get_current_user)):
         "mobile_number": current_user.mobile_number,
         "country": current_user.country.name if current_user.country else None,
         "role": current_user.role,
+        "subscription_id": active_sub.id if active_sub else None,
+        "has_active_subscription": bool(active_sub),
     }
  
  

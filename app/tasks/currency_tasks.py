@@ -7,10 +7,13 @@ from app.database.db import SessionLocal
 
 
 def update_exchange_rates():
+    print("Currency update started...")  # 👈 ADD
+
     api_key = os.getenv("EXCHANGE_RATE_API_KEY")
     if not api_key:
+        print("API KEY NOT SET")
         raise RuntimeError("EXCHANGE_RATE_API_KEY not set")
-
+    print("API KEY FOUND")  
     db = SessionLocal()
     try:
         res = requests.get(

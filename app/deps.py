@@ -1,14 +1,13 @@
 # app/deps.py
-
+from uuid import UUID
+from app import models
+from typing import Optional
+from app.auth import decode_token
+from app.database.db import get_db
 from sqlalchemy.orm import Session
 from fastapi.security import OAuth2PasswordBearer
-from fastapi import Depends, HTTPException, status, Query
-from uuid import UUID
+from fastapi import Depends, HTTPException, status, Query, Request
 
-from app import models
-from app.models.staff import Staff
-from app.database.db import get_db
-from app.auth import decode_token
 from app.utils.logger_config import app_logger as logger
 
 
@@ -59,6 +58,13 @@ def get_current_user(
         raise HTTPException(status_code=401, detail="User inactive")
 
     return user
+
+
+def get_current_user_optional(request: Request) -> Optional[models.User]:
+    try:
+        return get_current_user(request)
+    except Exception:
+        return None
 
 
 def require_superuser(

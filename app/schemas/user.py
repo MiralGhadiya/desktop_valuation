@@ -30,6 +30,9 @@ class UserProfile(BaseModel):
     mobile_number: str
     country: Optional[str]
     role: str
+    
+    subscription_id: Optional[UUID] = None
+    has_active_subscription: bool
 
     class Config:
         from_attributes = True
