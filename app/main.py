@@ -14,6 +14,7 @@ from app.routes.admin import (
     dashboard,
     feedback,
     staff,
+    inquiries   
 )
 
 from app.middleware.ip_country_middleware import IPCountryMiddleware
@@ -75,6 +76,7 @@ app.include_router(valuations.router)
 app.include_router(dashboard.router)
 app.include_router(feedback.router)
 app.include_router(staff.router)
+app.include_router(inquiries.router)
 
 # --------------------------------------------------
 # IP → Country middleware

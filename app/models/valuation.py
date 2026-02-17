@@ -55,7 +55,7 @@ class DesktopValuationForm(BaseModel):
     country: str
     full_address: str
     property_type: str
-    land_area: str
+    land_area: Optional[str] = None
     built_up_area: Optional[str] = None
     year_built: Optional[str] = None
     configuration: Optional[str] = None
@@ -74,7 +74,7 @@ def desktop_valuation_form_dep(
     # city_location: str = Form(...),
     full_address: str = Form(...),
     property_type: str = Form(...),
-    land_area: str = Form(...),
+    land_area: str = Form(None),
     built_up_area: Optional[str] = Form(None),
     year_built: Optional[str] = Form(None),
     configuration: Optional[str] = Form(None),

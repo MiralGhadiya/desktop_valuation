@@ -1,9 +1,11 @@
 #app/schemas/admin.py
 
 from uuid import UUID
-from typing import Optional
-from pydantic import BaseModel, EmailStr
+from datetime import datetime
+from typing import Optional, List
 from typing_extensions import Literal
+from pydantic import BaseModel, EmailStr
+
 
 
 class AdminTokenResponse(BaseModel):
@@ -50,3 +52,25 @@ class AdminFeedbackAction(BaseModel):
     reply: Optional[str] = None
     notify_user: bool = False
     admin_note: Optional[str] = None
+
+
+class AdminInquiryResponse(BaseModel):
+    id: UUID
+    type: str
+
+    first_name: str
+    last_name: Optional[str]
+
+    email: str
+    phone_number: Optional[str]
+
+    message: str
+
+    services: Optional[List[str]]
+    subscribe_newsletter: bool
+
+    created_at: datetime
+
+    model_config = {
+        "from_attributes": True  # IMPORTANT (Pydantic v2)
+    }
